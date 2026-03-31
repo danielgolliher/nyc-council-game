@@ -20,10 +20,65 @@ canvas {
     image-rendering: crisp-edges;
     border: 4px solid #333;
 }
+#game-wrap { position: relative; }
+#search-box {
+    display: none;
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    width: 380px;
+}
+#search-box.active { display: block; }
+#addr-input {
+    width: 100%;
+    padding: 8px 12px;
+    font: 14px 'Courier New', monospace;
+    background: rgba(10,10,30,0.95);
+    color: #fff;
+    border: 2px solid #2980b9;
+    border-radius: 4px;
+    outline: none;
+}
+#addr-input::placeholder { color: #666; }
+#addr-input:focus { border-color: #3498db; }
+#addr-results {
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(10,10,30,0.95);
+    border: 2px solid #2980b9;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+}
+#addr-results:empty { display: none; }
+.addr-result {
+    padding: 8px 12px;
+    font: 12px 'Courier New', monospace;
+    color: #ccc;
+    cursor: pointer;
+    border-bottom: 1px solid #1a1a3a;
+}
+.addr-result:hover, .addr-result.selected {
+    background: rgba(41,128,185,0.3);
+    color: #fff;
+}
+.addr-hint {
+    padding: 6px 12px;
+    font: 10px 'Courier New', monospace;
+    color: #555;
+    text-align: center;
+}
 </style>
 </head>
 <body>
+<div id="game-wrap">
 <canvas id="game" width="800" height="600"></canvas>
+<div id="search-box">
+    <input type="text" id="addr-input" placeholder="Enter a NYC address... (/ to open)" autocomplete="off" />
+    <div id="addr-results"></div>
+</div>
+</div>
 <script>
 'use strict';
 
@@ -1288,6 +1343,7 @@ let dlg = {active:false, id:null, phase:'greeting', topic:'', text:'', chars:0, 
 // ═══════════════════════════
 const keys = {};
 document.addEventListener('keydown', e => {
+    if(searchOpen) return; // address search is active, don't handle game keys
     keys[e.key] = true;
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Tab','Backspace'].includes(e.key)) e.preventDefault();
     if(state==='title'&&(e.key==='Enter'||e.key===' ')){state='playing';return;}
@@ -2079,9 +2135,130 @@ function renderTitle() {
     if(Math.floor(Date.now()/600)%2){ctx.fillStyle='#fff';ctx.font='bold 20px monospace';ctx.fillText('Press ENTER to start',W/2,380);}
     ctx.fillStyle='#555';ctx.font='12px monospace';
     ctx.fillText('Arrow Keys / WASD to move  |  SPACE to interact',W/2,440);
-    ctx.fillText('1-5 or Arrow Keys to choose dialogue options',W/2,462);
+    ctx.fillText('/  to search by address  |  1-6 for dialogue options',W/2,462);
     ctx.textAlign='left';
 }
+
+// ═══════════════════════════
+// ADDRESS SEARCH
+// ═══════════════════════════
+const searchBox = document.getElementById('search-box');
+const addrInput = document.getElementById('addr-input');
+const addrResults = document.getElementById('addr-results');
+let searchOpen = false;
+let searchTimeout = null;
+let searchSelIdx = -1;
+
+// Map coordinates (must match the projection used to generate tile map)
+const GEO_MIN_LON=-74.025, GEO_MAX_LON=-73.925, GEO_MIN_LAT=40.698, GEO_MAX_LAT=40.882;
+
+function openSearch() {
+    searchOpen = true;
+    searchBox.classList.add('active');
+    addrInput.value = '';
+    addrResults.innerHTML = '';
+    searchSelIdx = -1;
+    setTimeout(() => addrInput.focus(), 50);
+}
+
+function closeSearch() {
+    searchOpen = false;
+    searchBox.classList.remove('active');
+    addrInput.blur();
+    addrResults.innerHTML = '';
+    canvas.focus();
+}
+
+function teleportTo(lon, lat) {
+    const tx = (lon - GEO_MIN_LON) / (GEO_MAX_LON - GEO_MIN_LON) * MAP_W;
+    const ty = (1 - (lat - GEO_MIN_LAT) / (GEO_MAX_LAT - GEO_MIN_LAT)) * MAP_H;
+    const txi = Math.floor(tx), tyi = Math.floor(ty);
+
+    // Find nearest land tile if the exact spot is water
+    let destX = tx, destY = ty;
+    if (txi < 0 || tyi < 0 || txi >= MAP_W || tyi >= MAP_H || map[tyi][txi] === 0) {
+        let best = null;
+        for (let dy = -5; dy <= 5; dy++) {
+            for (let dx = -5; dx <= 5; dx++) {
+                const nx = txi+dx, ny = tyi+dy;
+                if (nx >= 0 && ny >= 0 && nx < MAP_W && ny < MAP_H && map[ny][nx] > 0) {
+                    const d = dx*dx + dy*dy;
+                    if (!best || d < best.d) best = {d, x:nx, y:ny};
+                }
+            }
+        }
+        if (best) { destX = best.x + 0.5; destY = best.y + 0.5; }
+    }
+
+    player.x = destX * TILE;
+    player.y = destY * TILE;
+    camera.x = player.x - W/2;
+    camera.y = player.y - H/2;
+    camera.x = Math.max(0, Math.min(MAP_W*TILE-W, camera.x));
+    camera.y = Math.max(0, Math.min(MAP_H*TILE-H, camera.y));
+    closeSearch();
+    if (state === 'title') state = 'playing';
+}
+
+function fetchSuggestions(text) {
+    if (text.length < 3) { addrResults.innerHTML = ''; return; }
+    fetch(`https://geosearch.planninglabs.nyc/v2/autocomplete?text=${encodeURIComponent(text)}`)
+        .then(r => r.json())
+        .then(data => {
+            const features = (data.features || []).slice(0, 8);
+            searchSelIdx = -1;
+            if (features.length === 0) {
+                addrResults.innerHTML = '<div class="addr-hint">No results found</div>';
+                return;
+            }
+            addrResults.innerHTML = features.map((f, i) =>
+                `<div class="addr-result" data-idx="${i}" data-lon="${f.geometry.coordinates[0]}" data-lat="${f.geometry.coordinates[1]}">${f.properties.label}</div>`
+            ).join('') + '<div class="addr-hint">Powered by NYC Planning Labs GeoSearch</div>';
+
+            addrResults.querySelectorAll('.addr-result').forEach(el => {
+                el.addEventListener('click', () => {
+                    teleportTo(parseFloat(el.dataset.lon), parseFloat(el.dataset.lat));
+                });
+            });
+        })
+        .catch(() => {
+            addrResults.innerHTML = '<div class="addr-hint">Search error</div>';
+        });
+}
+
+addrInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => fetchSuggestions(addrInput.value), 250);
+});
+
+addrInput.addEventListener('keydown', (e) => {
+    const items = addrResults.querySelectorAll('.addr-result');
+    if (e.key === 'Escape') { closeSearch(); e.preventDefault(); return; }
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        searchSelIdx = Math.min(items.length - 1, searchSelIdx + 1);
+        items.forEach((el, i) => el.classList.toggle('selected', i === searchSelIdx));
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        searchSelIdx = Math.max(-1, searchSelIdx - 1);
+        items.forEach((el, i) => el.classList.toggle('selected', i === searchSelIdx));
+    } else if (e.key === 'Enter' && searchSelIdx >= 0 && items[searchSelIdx]) {
+        e.preventDefault();
+        const el = items[searchSelIdx];
+        teleportTo(parseFloat(el.dataset.lon), parseFloat(el.dataset.lat));
+    }
+    e.stopPropagation(); // Don't let game input handler see these keys
+});
+
+// Prevent game keys while search is open
+const origKeyDown = document.onkeydown;
+document.addEventListener('keydown', (e) => {
+    if (searchOpen && e.target === addrInput) return; // let input handle it
+    if (!searchOpen && e.key === '/' && state !== 'dialogue') {
+        e.preventDefault();
+        openSearch();
+    }
+}, true);
 
 // ═══════════════════════════
 // GAME LOOP
