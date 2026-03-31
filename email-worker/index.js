@@ -52,6 +52,9 @@ function buildEmailHTML({ fromName, fromEmail, toEmail, memberName, district, su
               <div style="font-size: 15px; color: #222; line-height: 1.6;">
                 ${bodyHtml}
               </div>
+              <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #E0E0E0; font-size: 13px; color: #888; font-style: italic;">
+                This email sent to you from a citizen who found the council member in <a href="https://danielgolliher.github.io/nyc-council-game/" target="_blank" style="color: #2980b9; text-decoration: none;">NYC Council Quest</a>!
+              </div>
             </td>
           </tr>
 
