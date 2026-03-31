@@ -1594,7 +1594,7 @@ function update() {
     const d=(ty>=0&&ty<MAP_H&&tx>=0&&tx<MAP_W)?map[ty][tx]:0;
     if(d>0&&d!==currentDistrict){
         currentDistrict=d;
-        banner={text:d<=10?`District ${d} - ${DISTRICT_NAMES[d]}`:DISTRICT_NAMES[d],timer:180};
+        banner={text:d<=10?`District ${d} - ${DISTRICT_NAMES[d]}`:('Central Park - District 6'),timer:180};
     }
     if(banner.timer>0) banner.timer--;
     nearNPC=null;
@@ -1663,7 +1663,7 @@ function render() {
     ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(8,8,220,48);
     ctx.strokeStyle=DISTRICT_COLORS[currentDistrict]||'#555';ctx.strokeRect(8,8,220,48);
     ctx.font='12px monospace';
-    if(currentDistrict===11){ctx.fillStyle='#fff';ctx.fillText('Central Park',16,26);ctx.fillStyle='#4a9e38';ctx.fillText('Enjoy the greenery',16,44);}
+    if(currentDistrict===11){ctx.fillStyle='#fff';ctx.fillText('Central Park (District 6)',16,26);ctx.fillStyle='#8e44ad';ctx.fillText('CM Gale Brewer [D]',16,44);}
     else if(MEMBERS[currentDistrict]){ctx.fillStyle='#fff';ctx.fillText(MEMBERS[currentDistrict].district,16,26);ctx.fillStyle=DISTRICT_COLORS[currentDistrict];ctx.fillText(MEMBERS[currentDistrict].name.substring(0,28),16,44);}
 
     // Progress
