@@ -136,7 +136,7 @@ export default {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'NYC Council Quest <noreply@data.maximumnewyork.com>',
+        from: `${fromEmail} via NYC Council Quest <noreply@data.maximumnewyork.com>`,
         to: toEmail,
         cc: fromEmail,
         reply_to: fromEmail,
