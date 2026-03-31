@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Council Quest - Manhattan Edition</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #0a0a0a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+}
+canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 4px solid #333;
+}
+</style>
+</head>
+<body>
+<canvas id="game" width="800" height="600"></canvas>
+<script>
+'use strict';
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = 800, H = 600;
+const TILE = 32;
+const MAP_W = 40, MAP_H = 80;
+const SPEED = 3;
+
+// ═══════════════════════════
+// COLORS
+// ═══════════════════════════
+const WATER = '#102840', WATER2 = '#0e2235';
+const DISTRICT_COLORS = {
+    1:'#c0392b',2:'#d4a017',3:'#27ae60',4:'#2980b9',5:'#c0547a',
+    6:'#8e44ad',7:'#d35400',8:'#16a085',9:'#922b21',10:'#1abc9c',11:'#2d5a1e'
+};
+const DISTRICT_LIGHT = {
+    1:'#e74c3c',2:'#f1c40f',3:'#2ecc71',4:'#3498db',5:'#e77fa0',
+    6:'#9b59b6',7:'#e67e22',8:'#1abc9c',9:'#c0392b',10:'#2ecc71',11:'#3a8c28'
+};
+const DISTRICT_NAMES = {
+    1:'Lower Manhattan',2:'East Village / Gramercy',3:'Chelsea / West Village',
+    4:'Midtown East',5:'Upper East Side',6:'Upper West Side',
+    7:'West Harlem',8:'East Harlem',9:'Central Harlem',
+    10:'Washington Heights',11:'Central Park'
+};
+
+// ═══════════════════════════
+// COUNCIL MEMBER DATA
+// ═══════════════════════════
+const MEMBERS = {
+    1: {
+        name:"Christopher Marte", district:"District 1", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#c0392b',hair:'#1a1a1a',skin:'#d4a574',pants:'#2c3e50'},
+        pos:{x:20,y:58},
+        greeting:"Welcome to District 1! I'm Christopher Marte. From the southern tip of Manhattan to the cobblestones of SoHo, this is where the city begins.",
+        about:"District 1 covers Lower Manhattan - Financial District, Battery Park City, Tribeca, SoHo, Little Italy, Chinatown, and the Lower East Side. One of the most diverse districts in the entire city.",
+        landmarks:"Wall Street & NYSE. One World Trade Center & 9/11 Memorial. Brooklyn Bridge. Chinatown - the largest in the Western Hemisphere. SoHo's cast-iron loft buildings. Governors Island.",
+        issues:"Housing affordability is our #1 fight. Chinatown and the LES face intense displacement pressure. We need tenant protections, illegal eviction prevention, and real investment in NYCHA - not privatization.",
+        cosponsored: 81
+    },
+    2: {
+        name:"Harvey Epstein", district:"District 2", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#d4a017',hair:'#3d2b1f',skin:'#e8c39e',pants:'#34495e'},
+        pos:{x:24,y:50},
+        greeting:"Hey there! Harvey Epstein, District 2. I cover the East Village all the way up to Murray Hill. Formerly in the State Assembly - now bringing that energy to the Council.",
+        about:"District 2 stretches from Greenwich Village and the East Village through Gramercy, Union Square, Flatiron, Murray Hill, and Kips Bay. The heart of downtown Manhattan - universities, hospitals, vibrant neighborhoods.",
+        landmarks:"Union Square - one of NYC's great public spaces. NYU's campus throughout the Village. The Flatiron Building. Gramercy Park - Manhattan's only private park. Bellevue Hospital - the nation's oldest public hospital.",
+        issues:"Tenant protection is critical - we're losing affordable units fast. Worker protections. Preserving daycare centers being squeezed out by rising rents. Promoting diversity in school admissions.",
+        cosponsored: 33
+    },
+    3: {
+        name:"[VACANT - Election Apr 28]", district:"District 3", party:"",
+        title:"Seat Vacant",
+        color:{shirt:'#555',hair:'#888',skin:'#aaa',pants:'#444'},
+        pos:{x:15,y:48},
+        greeting:"This seat is currently vacant. Council Member Erik Bottcher resigned to join the State Senate. A special election is scheduled for April 28, 2026.",
+        about:"District 3 covers Chelsea, the West Village, Hell's Kitchen, the Garment District, and Hudson Square. Home to NYC's most vibrant cultural scenes and the historic heart of the LGBTQ+ community.",
+        landmarks:"The High Line. Chelsea Market. Hudson Yards. Times Square (partial). The Stonewall Inn - birthplace of the modern LGBTQ+ rights movement. Madison Square Garden.",
+        issues:"Affordable housing in one of the most expensive parts of NYC. Protecting nightlife and cultural venues. Pedestrian safety. The continuing impact of Hudson Yards on the surrounding neighborhoods.",
+        cosponsored: 0
+    },
+    4: {
+        name:"Virginia Maloney", district:"District 4", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#2980b9',hair:'#2c1810',skin:'#f0d5b8',pants:'#2c3e50'},
+        pos:{x:25,y:38},
+        greeting:"Hello! I'm Virginia Maloney, District 4. I took office in January 2026 and I'm already deep into affordability and government accountability work.",
+        about:"District 4 covers the southern Upper East Side, East Midtown, Turtle Bay, Murray Hill, Sutton Place, Tudor City, and Peter Cooper Village-Stuyvesant Town. Iconic skyline meets beloved residential neighborhoods.",
+        landmarks:"Grand Central Terminal. The United Nations Headquarters. The Chrysler Building. Tudor City - one of NYC's first residential skyscraper complexes. Stuyvesant Town-Peter Cooper Village.",
+        issues:"Improving affordability for residents squeezed by rising costs. Strengthening government accountability and transparency. Expanding access to essential city services for all constituents.",
+        cosponsored: 31
+    },
+    5: {
+        name:"Julie Menin", district:"District 5", party:"Democrat",
+        title:"Speaker of the Council",
+        color:{shirt:'#c0547a',hair:'#3d2b1f',skin:'#f0d5b8',pants:'#2c3e50'},
+        pos:{x:25,y:29},
+        greeting:"Welcome! I'm Julie Menin, Speaker of the NYC Council since January 2026 - the first Jewish Speaker in its history. I represent the Upper East Side and Roosevelt Island.",
+        about:"District 5 is the Upper East Side - Lenox Hill, Yorkville, Carnegie Hill - plus Roosevelt Island. As Speaker, I set the legislative agenda for the full 51-member Council.",
+        landmarks:"The Metropolitan Museum of Art. The Guggenheim. The Frick Collection. Central Park's eastern edge. The Roosevelt Island Tramway - North America's only commuter aerial tram.",
+        issues:"Building more affordable housing citywide. Lowering healthcare costs through price transparency. Slashing fines and red tape for small businesses. Rooting out waste, fraud, and abuse in city government.",
+        cosponsored: 5
+    },
+    6: {
+        name:"Gale Brewer", district:"District 6", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#8e44ad',hair:'#aaa',skin:'#f0d5b8',pants:'#34495e'},
+        pos:{x:15,y:29},
+        greeting:"Hello! Gale Brewer here. I've been serving this community since 2002 - Council member, then Borough President, now back on the Council. I know every block of the Upper West Side.",
+        about:"District 6 is the Upper West Side, Lincoln Square, parts of Hell's Kitchen, and Central Park West. One of the most civically engaged districts in the city - and I wouldn't have it any other way.",
+        landmarks:"Lincoln Center for the Performing Arts. American Museum of Natural History. The Beacon Theatre. Riverside Park and Central Park's western edge. The Dakota building.",
+        issues:"Lithium-ion battery fires are a major safety crisis. Expanding the urban tree canopy. Protecting hourly workers' rights. E-bike and micromobility safety. Keeping the neighborhood affordable.",
+        cosponsored: 199
+    },
+    7: {
+        name:"Shaun Abreu", district:"District 7", party:"Democrat",
+        title:"Majority Leader",
+        color:{shirt:'#d35400',hair:'#1a1a1a',skin:'#8d6e54',pants:'#2c3e50'},
+        pos:{x:14,y:19},
+        greeting:"What's good! Shaun Abreu, Majority Leader of the NYC Council. First Latino to represent this district. Welcome to the heart of Upper Manhattan.",
+        about:"District 7 covers Manhattan Valley, Morningside Heights, Manhattanville, West Harlem, Hamilton Heights, and Sugar Hill. Historically rich, culturally vibrant - the Harlem Renaissance started here.",
+        landmarks:"Columbia University. City College of New York. Riverside Church. Grant's Tomb. Sugar Hill - historic home of Black artists and intellectuals during the Harlem Renaissance.",
+        issues:"Affordable housing is existential here - gentrification is transforming neighborhoods. Worker rights and fair wages. Universal after-school programs for kids. Environmental sustainability.",
+        cosponsored: 57
+    },
+    8: {
+        name:"Elsie Encarnacion", district:"District 8", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#16a085',hair:'#1a1a1a',skin:'#c69c6d',pants:'#2c3e50'},
+        pos:{x:26,y:19},
+        greeting:"Bienvenidos! I'm Elsie Encarnacion, District 8 - the only Manhattan council district that also extends into the Bronx. East Harlem to Mott Haven, we're one community.",
+        about:"District 8 spans East Harlem (Manhattan) and Mott Haven, Melrose, Concourse Village in the South Bronx. We bridge the Harlem River. Median income is just $32K - but our community has enormous resilience.",
+        landmarks:"El Museo del Barrio. Randall's Island. The Hub shopping district in the South Bronx. The Harlem River bridges connecting our two-borough district.",
+        issues:"Education access. Housing stability in a $32K median-income district. Economic opportunity. Youth workforce development - I'm building a new youth hub at the former 40th Precinct site on E. 138th St.",
+        cosponsored: 30
+    },
+    9: {
+        name:"Yusef Salaam", district:"District 9", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#922b21',hair:'#1a1a1a',skin:'#6b4226',pants:'#1a1a1a'},
+        pos:{x:20,y:18},
+        greeting:"Peace and blessings. I'm Yusef Salaam. One of the Exonerated Five, wrongfully convicted at age 15. That experience drives everything I do for Harlem.",
+        about:"District 9 is the heart of Black America's cultural capital - Central Harlem, plus parts of Morningside Heights, Hamilton Heights, and East Harlem. This neighborhood has always led.",
+        landmarks:"The Apollo Theater. The Studio Museum in Harlem. Schomburg Center for Research in Black Culture. 125th Street - Harlem's Main Street. Sylvia's Restaurant.",
+        issues:"Criminal justice reform is personal to me. Prison reform. Ending juvenile solitary confinement. Police accountability and transparency. I chair the Committee to Combat Hate.",
+        cosponsored: 50
+    },
+    10: {
+        name:"Carmen De La Rosa", district:"District 10", party:"Democrat",
+        title:"Council Member",
+        color:{shirt:'#1abc9c',hair:'#1a1a1a',skin:'#c69c6d',pants:'#2c3e50'},
+        pos:{x:20,y:8},
+        greeting:"Bienvenidos a Washington Heights! I'm Carmen De La Rosa. Welcome to the top of Manhattan. We're proud, we're loud, and we get things done.",
+        about:"District 10: Washington Heights, Inwood, and Marble Hill - the northern tip of Manhattan. A predominantly Dominican community with deep roots and incredible civic energy. I helped pass the NY State DREAM Act.",
+        landmarks:"The Cloisters - the Met's medieval art museum in Fort Tryon Park. Inwood Hill Park - the last natural forest in Manhattan. The George Washington Bridge. Bennett Park - Manhattan's highest point.",
+        issues:"Tenant protections in a rapidly changing neighborhood. Workers' rights. Truly affordable housing. Climate justice. Immigrant rights - this is an immigrant community and we protect our neighbors.",
+        cosponsored: 44
+    }
+};
+
+// ═══════════════════════════
+// LEGISLATION DATA (Primary Sponsored, from intro.nyc, 2026-2029 session)
+// Format: [bill number, title, status]  Status: C=Committee, L=Laid Over, M=Mayor's Desk, E=Enacted
+// ═══════════════════════════
+const LEGIS = {
+    1: [ // Marte - 13 bills
+        ["0298","Film/TV/theater accessibility fund for persons with disabilities","C"],
+        ["0299","Report on WTC-area school outreach by DOE and DOHMH","C"],
+        ["0300","Prohibiting artificial grass in city parks","C"],
+        ["0301","Report on police/fire environmental hazard exposure outreach","C"],
+        ["0302","Prohibiting restrictions on religious items on entry doors","C"],
+        ["0303","Maximum working hours for home care aides","L"],
+        ["0304","DOB inspection access procedures for complaints","C"],
+        ["0305","Prohibiting no-pet clauses in unsubsidized leases","C"],
+        ["0306","Information on affordable housing units","C"],
+        ["0307","Universal SCRIE/DRIE application and recertification system","C"],
+        ["0308","Study on hostile architecture in the city","C"],
+        ["0309","Discounted bike share rate for seniors","C"],
+        ["0310","Bilingual street name signs","L"]
+    ],
+    2: [ // Epstein - 5 bills
+        ["0177","Student loan financial counseling program","M"],
+        ["0178","Establishing an office of conversion assistance","C"],
+        ["0531","Prohibiting the sale of glue traps","C"],
+        ["0532","Pilot program for drinking fountains on fire hydrants","C"],
+        ["0789","Court supervised release notification requirements","C"]
+    ],
+    3: [],
+    4: [ // Maloney - 2 bills
+        ["0066","Shared housing","L"],
+        ["0297","Emergency planning for religious and non-profit institutions","M"]
+    ],
+    5: [ // Menin - 10 bills
+        ["0001","Security perimeters adjacent to places of religious worship","M"],
+        ["0002","Emergency procurement approval and contract audit submission","E"],
+        ["0003","Study on feasibility of siting data centers in NYC","C"],
+        ["0004","Prohibiting surge pricing at food service establishments","C"],
+        ["0005","Criminal penalties for false information in contracting","E"],
+        ["0010","DOE report on NYC Scholarship Account outreach to parents","C"],
+        ["0011","Increasing civil penalties for truck and bus idling","C"],
+        ["0012","Prohibiting deceptive AI media in local elections","C"],
+        ["0013","Installation of solar-powered crosswalks","L"],
+        ["0685","Establishing an office of insurance accountability","C"]
+    ],
+    6: [ // Brewer - 34 bills
+        ["0072","Building demolition permit notification in special districts","C"],
+        ["0076","Double-decker sightseeing bus upper level staffing requirement","C"],
+        ["0077","Pedicab ride timer visibility","C"],
+        ["0078","Retention of delivery data","C"],
+        ["0079","Creating a historic and cultural marker program","C"],
+        ["0080","Reporting on food and nutrition education in schools","C"],
+        ["0081","Emergency vehicles to emit pulsating low-frequency tones","C"],
+        ["0082","Complaint-based siren sound study in the city","C"],
+        ["0083","Ban on gas-powered leaf blowers and lawn mowers","C"],
+        ["0084","Grocery store commercial rent tax exemption","C"],
+        ["0085","Minimum neighborhood service standards for large developments","C"],
+        ["0086","Agency planning for federal government shutdowns","C"],
+        ["0087","Library and archival review advisory board consolidation","M"],
+        ["0088","HDFC unit sale transparency","C"],
+        ["0089","Tree pit identification and use on the tree map","C"],
+        ["0090","Storefront lease agreement regulations","C"],
+        ["0091","E-bike/scooter share speedometers and speed limits for new riders","C"],
+        ["0092","Repeal adhesive sticker alternate side parking enforcement","C"],
+        ["0093","Expanding the bicycle parking station program","L"],
+        ["0094","Licensing and use of autonomous vehicles as taxis","C"],
+        ["0095","Moped retailer ownership info at point of sale","C"],
+        ["0096","Privacy of communications for individuals in DOC custody","C"],
+        ["0097","Reducing sightseeing helicopter noise","C"],
+        ["0098","CityFHEPS dwelling habitability determination procedures","C"],
+        ["0099","DHS reporting on family shelter placement","C"],
+        ["0100","Housing voucher lease-up time reporting","C"],
+        ["0101","CityFHEPS application response times","C"],
+        ["0102","Lobbying prohibitions related to fundraising/consulting","C"],
+        ["0516","Uniform contract and invoice templates for city agencies","C"],
+        ["0517","Preservation of biological evidence in criminal matters","C"],
+        ["0690","Surveillance technology reporting and oversight for law enforcement","C"],
+        ["0783","Dog bite incident reporting","C"],
+        ["0784","Dog licensing outreach and education campaign","C"],
+        ["0785","Police precinct animal cruelty liaison officer training","C"]
+    ],
+    7: [ // Abreu - 24 bills
+        ["0014","Food retailer pricing accuracy","C"],
+        ["0015","Background checks for child care providers (version A)","C"],
+        ["0016","Solar-ready commercial buildings feasibility study","C"],
+        ["0017","Covered stores to collect and recirculate reusable bags","C"],
+        ["0018","Pilot program: power-washing sidewalks in commercial corridors","E"],
+        ["0019","Commercial waste collection service mergers and acquisitions","C"],
+        ["0021","Allowing sick time for care of certain animals","C"],
+        ["0022","DOE materials on risks of social media and online hate","M"],
+        ["0023","Background checks for child care providers (version B)","C"],
+        ["0024","Child care opioid antagonist program","C"],
+        ["0025","Pilot: oral appliances for individuals with sleep apnea","C"],
+        ["0026","Background checks for child care providers (version C)","C"],
+        ["0027","Materials on risks of keeping a gun in the home","C"],
+        ["0028","Office of housing development fund company outreach","C"],
+        ["0029","DOB facade inspection compliance outreach program","C"],
+        ["0030","On-street waste containers for city-owned buildings","C"],
+        ["0031","Expand commercial organic waste disposal requirements","C"],
+        ["0032","NYCHA sidewalk repair priority","C"],
+        ["0065","DRIE public awareness campaign","C"],
+        ["0068","Newsrack requirements and enforcement","E"],
+        ["0725","Tax exemption for surviving spouses of police killed in duty","C"],
+        ["0726","DHS/hospital coordination: weather event info materials","C"],
+        ["0727","DHS/hospital coordination: weather event supplies","C"],
+        ["0781","Allow reusable cups at food service establishments","C"]
+    ],
+    8: [ // Encarnacion - 1 bill
+        ["0724","Maximum clear path requirements for sidewalk cafes","C"]
+    ],
+    9: [ // Salaam - 9 bills
+        ["0073","Licensed social worker in every police precinct","C"],
+        ["0716","Zero greenhouse gas emissions feasibility study","C"],
+        ["0717","DOB to inform property owners of permit sign-off requirements","C"],
+        ["0718","Police department FOIL compliance reporting","C"],
+        ["0719","Blood alcohol testing for officers after firearm discharge","C"],
+        ["0720","Top-level domain requirement for city agency websites","C"],
+        ["0721","Parking permits for medical residents","C"],
+        ["0780","NYPD daily maps: collisions and speeding locations","C"],
+        ["0799","Small business support fund for roadway construction impacts","C"]
+    ],
+    10: [ // De La Rosa - 25 bills
+        ["0154","Construction worker protections from extreme heat","C"],
+        ["0155","Right-to-disconnect: work communication policies for non-work hours","C"],
+        ["0156","Permit street vendors to vend within 2 feet of curb","C"],
+        ["0157","Multi-agency notification for FDNY structural fire responses","C"],
+        ["0158","Non-tobacco hookah establishment licensing","C"],
+        ["0159","Cap renewable energy credits at 10% of building emissions limit","C"],
+        ["0160","COVID-19 memorial task force","C"],
+        ["0161","Report on algorithmic tool impact on city employees","C"],
+        ["0162","311 complaint category for dog runs","C"],
+        ["0163","Inwood ferry service feasibility study","L"],
+        ["0164","Gender pay gap and economic self-sufficiency task force","C"],
+        ["0519","School diversity monitor in human rights commission","C"],
+        ["0520","Union membership guidance for public-sector employees","C"],
+        ["0521","Employee benefits administration","C"],
+        ["0522","Increase penalties for fair work week violations","C"],
+        ["0523","Workers' rights training for fast food employees","C"],
+        ["0524","Medical examiner workplace fatality records and reporting","C"],
+        ["0525","DOHMH extreme weather worker guidance","C"],
+        ["0526","Organic waste storage in new multiple dwellings","C"],
+        ["0527","Lead-based paint inspections","C"],
+        ["0528","Increase fines for unlawful ATV and dirt bike use","C"],
+        ["0529","Northern Manhattan residential parking permits","C"],
+        ["0530","Office of sexual orientation and gender identity","C"],
+        ["0692","School paraprofessional workforce stabilization payments","L"],
+        ["0728","Contractor license restrictions for wage violations","C"]
+    ]
+};
+
+// ═══════════════════════════
+// SHARED BILL DATABASE (for co-sponsored lookups)
+// ═══════════════════════════
+const B={
+"0001":["Security perimeters for places of worship","M"],
+"0002":["Emergency procurement approval and audit","E"],
+"0003":["Data center siting feasibility study","C"],
+"0004":["Prohibit surge pricing at food establishments","C"],
+"0005":["Criminal penalties for false contracting info","E"],
+"0008":["Child care in vacant commercial space pilot","C"],
+"0009":["Expediting child care permitting study","C"],
+"0010":["DOE NYC Scholarship Account outreach report","C"],
+"0011":["Increase truck/bus idling penalties","C"],
+"0012":["Prohibit deceptive AI media in elections","C"],
+"0013":["Solar-powered crosswalks","L"],
+"0016":["Solar-ready commercial buildings study","C"],
+"0022":["DOE social media/online hate materials","M"],
+"0029":["DOB facade inspection compliance outreach","C"],
+"0031":["Expand commercial organic waste requirements","C"],
+"0037":["Rental assistance for homeless veterans","C"],
+"0048":["Air complaint portal translation","C"],
+"0049":["Tree planting alternate compliance reporting","C"],
+"0050":["EV charging station mobile app","C"],
+"0054":["Air quality monitoring at heavy-use roads","C"],
+"0055":["Constitutional protections signage","C"],
+"0056":["Annual waterfront infrastructure report","C"],
+"0058":["Last-mile facility truck traffic study","C"],
+"0059":["Housing displacement reporting for counsel","C"],
+"0061":["NYCHA tenant business directory","C"],
+"0062":["Civil service reimbursement study","C"],
+"0063":["Artist housing preferences","C"],
+"0066":["Shared housing","L"],
+"0067":["Fentanyl test strip outreach campaign","C"],
+"0069":["Ban single-use water containers for agencies","C"],
+"0070":["Sidewalk sheds vs parks/playgrounds","C"],
+"0071":["Shed permits: repair city trees","C"],
+"0073":["Social worker in every police precinct","C"],
+"0074":["Cannabis nuisance abatement","C"],
+"0087":["Library/archival advisory board merge","M"],
+"0096":["DOC prisoner communication privacy","C"],
+"0104":["Parking structure weight limits","C"],
+"0113":["Dangerous driving study","C"],
+"0114":["Job listing info requirements","C"],
+"0115":["Non-compete agreement prohibition","C"],
+"0124":["E-bike street safety task force","C"],
+"0130":["Sex worker rights protections","C"],
+"0133":["Trans/GNC task force extension","C"],
+"0134":["Trans/GNC housing decisions","C"],
+"0140":["Bird-friendly building materials","C"],
+"0141":["DA retained property reporting","C"],
+"0142":["Police misconduct complaint reports","C"],
+"0144":["Special vehicle parking permit terms","C"],
+"0150":["Elected official branded material reports","C"],
+"0156":["Street vendors vend within 2ft of curb","C"],
+"0159":["Cap renewable energy credits at 10%","C"],
+"0163":["Inwood ferry service feasibility study","L"],
+"0165":["Hate crime case status reporting","C"],
+"0166":["Hate crime notification","C"],
+"0171":["311 image/video for service requests","C"],
+"0175":["Security perimeters for schools","M"],
+"0177":["Student loan counseling program","M"],
+"0182":["Municipal human milk bank","C"],
+"0183":["Food establishment inspection notices","C"],
+"0185":["EV charging on lampposts","C"],
+"0187":["Helicopter noise monitoring","C"],
+"0188":["Ferry worker living wages","C"],
+"0196":["Chain restaurant sodium warnings","C"],
+"0197":["Identifying/private info definitions","C"],
+"0198":["E-bike mechanic battery safety cert","C"],
+"0203":["Early childhood provider payment reporting","E"],
+"0206":["Earned Safe and Sick Time expansion","C"],
+"0208":["MENA business disparity studies","C"],
+"0209":["Private action for immigration detainers","C"],
+"0210":["Restrict E-Verify usage","C"],
+"0211":["Fertility treatment insurance info","C"],
+"0212":["Parks ADA compliance annual report","C"],
+"0213":["Ban biometric recognition in public accom.","C"],
+"0214":["Micromobility share rules of the road","C"],
+"0215":["Caregiver workplace accommodations","C"],
+"0220":["Enslaved African American burial sites","C"],
+"0222":["Office of the waterfront","C"],
+"0225":["QR codes on ceremonial street signs","C"],
+"0231":["SCRIE/DRIE program updates","C"],
+"0234":["Private building accessibility data","C"],
+"0238":["Grab-and-go meals at senior centers","C"],
+"0239":["Senior technical support program","C"],
+"0240":["Universal after-school program plan","C"],
+"0241":["Universal youth employment program","C"],
+"0242":["Family structure discrimination ban","C"],
+"0243":["Poverty discrimination prohibition","C"],
+"0244":["Ban class 3 e-bike sales/rentals","C"],
+"0246":["Return commissary funds on release","C"],
+"0247":["Universal benefits app (Access NYC)","C"],
+"0248":["Auto-enroll eligible people in benefits","C"],
+"0249":["Security deposit deduction documentation","C"],
+"0252":["Minimum dwelling temperatures","C"],
+"0253":["Housing violation complaints","C"],
+"0256":["Textile recycling mandate study","C"],
+"0261":["Ban contracting with ICE entities","C"],
+"0262":["Beach/pool season and hours","C"],
+"0263":["Capital project 25% duration reduction","C"],
+"0268":["Source of income discrimination","C"],
+"0270":["Property registration online copy","C"],
+"0271":["HPD tenant relocation services","C"],
+"0272":["Taxicab e-dispatch driver pay","C"],
+"0279":["Ambulette bus lane exemptions","C"],
+"0280":["Daily home-delivered meals","C"],
+"0281":["Pre-K provider compensation","C"],
+"0282":["Building emissions calculations","C"],
+"0290":["Shelter free internet access","C"],
+"0291":["Youth suicide reporting","E"],
+"0294":["Student bike share discount","C"],
+"0297":["Emergency planning for religious/nonprofits","M"],
+"0302":["Protect religious items on doors","C"],
+"0303":["Home care aide max working hours","L"],
+"0307":["Universal SCRIE/DRIE application","C"],
+"0309":["Senior bike share discount","C"],
+"0311":["Police property ID lookup","C"],
+"0312":["Work site contact info posting","C"],
+"0313":["Dumping cleanup and enforcement","C"],
+"0319":["Public fund debate requirement","C"],
+"0320":["Staten Island flag codification","C"],
+"0322":["Council community board appointments","C"],
+"0323":["Organ donor paid leave","C"],
+"0327":["Nonpublic school camera reimbursement","C"],
+"0330":["Hospital nurse staffing plan","C"],
+"0340":["Parking violation penalty waivers","C"],
+"0341":["Rechargeable battery disposal reporting","C"],
+"0344":["Microplastics in drinking water testing","C"],
+"0347":["Social housing agency feasibility study","C"],
+"0352":["E-bike battery disposal plan","C"],
+"0357":["E-bike battery stations","C"],
+"0359":["City lots for energy storage","C"],
+"0360":["Property tax outreach","C"],
+"0361":["Public tax lien recording","C"],
+"0363":["Injunctive relief for lawful occupants","C"],
+"0364":["Increase unlawful eviction penalties","C"],
+"0365":["HPD follow-up inspections","C"],
+"0367":["DSNY commercial waste at transfer stations","C"],
+"0369":["Borough composting facilities","C"],
+"0377":["Ban e-bikes/scooters in parks","C"],
+"0381":["DOE school ADA compliance info","C"],
+"0386":["311 video call functionality","C"],
+"0388":["Discrimination/harassment hotline","M"],
+"0390":["Former public servant policy ban","C"],
+"0394":["Monthly federal funding status reports","C"],
+"0397":["Capital plant inventory/maintenance","C"],
+"0402":["Ban private vehicle parking permits","C"],
+"0403":["Department of community safety","C"],
+"0405":["Children's meal nutrition standards","C"],
+"0406":["Co-op board member training program","C"],
+"0408":["Small business social media matching","C"],
+"0409":["Bus lane restrictions","M"],
+"0410":["Stores accept flex benefit cards","C"],
+"0412":["School admissions policy disclosure","C"],
+"0413":["Office of Black male excellence","C"],
+"0414":["Gun violence intervention hotline","C"],
+"0415":["Youth entrepreneurship program","C"],
+"0416":["Bus shelter cleaning pilot","M"],
+"0420":["STI rapid self-testing expansion","C"],
+"0421":["Cellar ADU occupancy in new builds","M"],
+"0422":["Capital projects in statement of needs","C"],
+"0423":["ULURP EIS mitigation tracking","C"],
+"0424":["Foster care mental health pilot","C"],
+"0425":["DOB OATH hearing adjournment report","C"],
+"0428":["Facial recognition in buildings limit","C"],
+"0429":["Street homeless rental assistance","C"],
+"0430":["City employee family building benefits","C"],
+"0432":["DOT curb repair during resurfacing","C"],
+"0434":["Medical screening time off","C"],
+"0435":["Ban pet restrictions in subsidized housing","C"],
+"0442":["Non-profit programming evaluations","C"],
+"0444":["Childhood hearing screenings","C"],
+"0447":["Youth alt-to-incarceration info","C"],
+"0448":["Youth board structure/responsibilities","E"],
+"0449":["Abuse report parent/guardian info","C"],
+"0452":["Human services worker wages","C"],
+"0453":["Mental health for jail visitors' kids","C"],
+"0456":["Parks permit fee waivers for schools","C"],
+"0457":["Crossing guard deployment reporting","C"],
+"0459":["Police plans for special needs","C"],
+"0460":["Abolish criminal group database","C"],
+"0464":["Community outdoor space program","C"],
+"0466":["ACS multilingual disclosure form","C"],
+"0470":["DHS family intake navigator services","C"],
+"0471":["Family intake centers establishment","C"],
+"0474":["Ban sidewalk smoking near parks","C"],
+"0485":["After-school SHSAT prep pilot","C"],
+"0488":["Mitchell-Lama veteran preference reports","C"],
+"0489":["Towed vehicle online database","C"],
+"0494":["EEP/CCHR budget provisions","C"],
+"0495":["Increase discrimination penalty maximums","C"],
+"0496":["Draft Riots of 1863 memorial study","C"],
+"0502":["Elected official salary commission","M"],
+"0504":["Ban unauthorized AI depiction of officials","C"],
+"0505":["FDNY discrimination compliance investigation","C"],
+"0506":["Queens street renaming (Live End)","C"],
+"0507":["311 overhead wire complaints","C"],
+"0511":["Ban parking near crosswalks (daylighting)","C"],
+"0512":["311 SNAP theft complaints","C"],
+"0513":["Speed camera location signs","C"],
+"0514":["Squatting location reporting","C"],
+"0518":["Last-mile facility licensing","C"],
+"0520":["Union guidance for public employees","C"],
+"0522":["Fair work week violation penalties","C"],
+"0524":["Workplace fatality records/reporting","C"],
+"0526":["Organic waste storage in new buildings","C"],
+"0527":["Lead-based paint inspections","C"],
+"0532":["Fire hydrant drinking fountains pilot","C"],
+"0533":["Good food purchasing program","C"],
+"0535":["Newsstand product regulation lift","C"],
+"0537":["DCWP newsstand reporting","C"],
+"0540":["Ban homeless families in violation bldgs","C"],
+"0546":["SHSAT prep for all middle schoolers","C"],
+"0547":["Added sugar warning label amendments","C"],
+"0548":["Parking garage inspection checklist","C"],
+"0549":["Ban fraudulent/expired license plates","C"],
+"0551":["Ban sale of fraudulent plates","C"],
+"0553":["Small business security tech aid","C"],
+"0556":["Annual drainage infrastructure report","C"],
+"0557":["Multiple dwelling energy efficiency","C"],
+"0558":["Renewable natural gas","C"],
+"0559":["Building energy report consolidation","C"],
+"0560":["Ban devocalization of cats and dogs","C"],
+"0563":["Bioswale/rain garden installation notice","C"],
+"0564":["Greened acre stormwater metric","C"],
+"0571":["Ban untethered plastic bottle caps","C"],
+"0574":["Lobbyist anti-harassment training","C"],
+"0577":["Trail improvement and creation","C"],
+"0580":["Office of child care (free citywide)","C"],
+"0582":["E-bike fireproof battery containers","C"],
+"0583":["City-sponsored renter's insurance study","C"],
+"0587":["Emergency congregate housing standards","C"],
+"0588":["Right to shelter placement notification","C"],
+"0589":["Ban shelter stay restrictions","C"],
+"0590":["Elephant captivity restrictions","C"],
+"0591":["Office of translation/interpretation","C"],
+"0593":["Police motor vehicle use of force","C"],
+"0597":["Non-driver ID for HS students","C"],
+"0598":["Monkeypox education and vaccine portal","C"],
+"0600":["Rent stabilized housing incentive study","C"],
+"0603":["Universal summer youth program plan","C"],
+"0604":["Ban diesel leaf blowers/mowers","C"],
+"0608":["SHSAT on a school day plan","C"],
+"0609":["Ban flavored cigarettes","C"],
+"0610":["Rent regulated demolition notice","C"],
+"0611":["Street sweeper parking cameras","C"],
+"0613":["Protected bicycle lanes","C"],
+"0619":["DOT sidewalk repair notification","C"],
+"0622":["Special vehicle parking permits","C"],
+"0630":["Borough jail construction coordinator","C"],
+"0632":["Ban non-essential heliport helicopters","C"],
+"0633":["Reduce chartered helicopter noise","C"],
+"0635":["Ban gas generators in ice cream trucks","C"],
+"0636":["After-hours construction debris removal","C"],
+"0637":["OEM air quality emergency notification","C"],
+"0638":["Air quality emergency response protocols","C"],
+"0639":["OEM comprehensive air quality plan","C"],
+"0640":["Solar panel rooftop access requirements","C"],
+"0641":["CityFHEPS rental assistance payments","C"],
+"0642":["CFB candidate disclosure response rules","C"],
+"0643":["Campaign contribution intermediary rules","C"],
+"0646":["DCAS workforce interactive webpage","C"],
+"0647":["Former elected official post-employment","C"],
+"0648":["Vacant property registration","C"],
+"0649":["Owner identification sign posting","C"],
+"0650":["City real property disposition","C"],
+"0654":["Hazardous vehicle obstruction complaints","C"],
+"0655":["Expand roadway and sidewalk cafes","C"],
+"0656":["Bike share fee maximums","C"],
+"0657":["Third party transfer program","C"],
+"0660":["Youth altercation/online platform study","C"],
+"0661":["DOC/court medical clinic","C"],
+"0662":["Groundwater flood risk area map","C"],
+"0664":["Elected official compensation","C"],
+"0665":["HPV education and self-testing","C"],
+"0666":["Parks tree maintenance ratings","C"],
+"0667":["Littering community service option","C"],
+"0669":["311 traffic complaints to police","C"],
+"0670":["Official social media decorum rules","C"],
+"0671":["Dynamic parking zones","C"],
+"0672":["Reduce commercial vehicle parking time","C"],
+"0674":["City contractor leadership diversity data","C"],
+"0676":["Standardized insurance for city contracts","C"],
+"0677":["Emergency info translation/distribution","C"],
+"0680":["Shelter exit destination data","C"],
+"0682":["Public wireless network program","C"],
+"0683":["Public review of agency e-services","C"],
+"0685":["Office of insurance accountability","C"],
+"0687":["Capital project delays study","C"],
+"0692":["Paraprofessional stabilization payments","L"],
+"0708":["Resident personal/sensitive info protect","C"],
+"0719":["Officer blood alcohol after shooting","C"],
+"0721":["Medical resident parking permits","C"],
+"0724":["Sidewalk cafe clear path requirements","C"],
+"0729":["Self-checkout staffing requirements","C"],
+"0740":["Green space study","C"],
+"0753":["Cannabis dispensary locations","C"],
+"0757":["Minimum wage establishment","C"],
+"0773":["Citywide shelter siting commission","C"],
+"0786":["DOC ballot curing procedures","C"],
+"0787":["Traffic enforcement operation reporting","C"],
+"0795":["Outdoor drinking fountains in parks","C"],
+"0796":["Police 1st amendment event response","C"],
+"0799":["Small business roadway construction fund","C"],
+"0298":["Film/TV/theater accessibility fund","C"],
+"0299":["WTC school outreach report","C"]
+};
+
+// ═══════════════════════════
+// CO-SPONSORED LEGISLATION (bill numbers per member)
+// ═══════════════════════════
+const COLEGIS = {
+1:["0001","0011","0013","0029","0048","0055","0061","0062","0074","0083","0093","0097","0098","0099","0100","0101","0114","0141","0144","0156","0159","0163","0175","0196","0197","0210","0213","0220","0222","0244","0249","0253","0261","0268","0271","0279","0281","0290","0291","0294","0311","0312","0313","0320","0322","0344","0347","0352","0357","0359","0365","0369","0402","0403","0410","0435","0442","0447","0452","0460","0502","0511","0518","0548","0580","0589","0591","0613","0622","0630","0632","0650","0654","0656","0657","0664","0692","0740","0753","0757","0796"],
+2:["0001","0048","0055","0061","0069","0070","0140","0213","0261","0291","0303","0311","0312","0313","0369","0403","0416","0428","0434","0502","0511","0518","0533","0580","0590","0622","0692","0721","0729","0757","0786","0787","0796"],
+3:[],
+4:["0001","0022","0061","0063","0124","0165","0175","0187","0188","0279","0291","0311","0312","0313","0323","0327","0388","0408","0409","0414","0415","0416","0434","0453","0459","0512","0513","0553","0657","0692","0799"],
+5:["0008","0009","0175","0687","0724"],
+6:["0001","0002","0004","0010","0011","0012","0013","0016","0022","0031","0048","0050","0054","0055","0058","0059","0061","0069","0070","0071","0073","0074","0104","0113","0115","0124","0130","0133","0134","0141","0142","0150","0166","0171","0175","0182","0183","0185","0197","0198","0203","0206","0209","0211","0212","0213","0214","0215","0225","0231","0234","0238","0239","0240","0241","0243","0244","0246","0247","0248","0249","0252","0256","0262","0263","0270","0271","0280","0291","0294","0297","0298","0299","0302","0307","0309","0311","0313","0319","0320","0330","0340","0341","0352","0359","0360","0361","0367","0377","0381","0386","0388","0390","0394","0397","0402","0403","0405","0412","0420","0422","0423","0424","0425","0428","0429","0430","0432","0444","0448","0449","0452","0456","0457","0464","0466","0470","0471","0474","0485","0488","0489","0511","0514","0518","0520","0522","0524","0526","0527","0532","0533","0535","0537","0540","0546","0549","0551","0556","0557","0558","0559","0560","0563","0564","0571","0577","0580","0582","0583","0587","0589","0590","0591","0593","0597","0598","0603","0604","0608","0609","0610","0611","0613","0619","0632","0633","0635","0636","0637","0638","0639","0641","0642","0643","0646","0647","0648","0649","0650","0654","0655","0657","0660","0661","0664","0667","0670","0671","0674","0676","0677","0680","0682","0683","0685","0692","0729","0757","0786"],
+7:["0001","0004","0011","0012","0048","0059","0066","0067","0071","0087","0140","0165","0175","0213","0239","0240","0241","0242","0261","0262","0263","0271","0272","0297","0303","0327","0363","0364","0388","0409","0416","0421","0428","0502","0518","0547","0548","0553","0574","0580","0582","0590","0633","0636","0637","0638","0639","0640","0650","0657","0664","0692","0719","0721","0773","0795","0799"],
+8:["0001","0003","0004","0009","0011","0018","0028","0037","0048","0049","0054","0055","0056","0087","0175","0279","0297","0303","0403","0406","0408","0409","0412","0415","0448","0502","0512","0622","0657","0692"],
+9:["0001","0002","0022","0087","0096","0165","0175","0203","0208","0213","0282","0291","0297","0307","0311","0312","0327","0365","0388","0403","0409","0413","0416","0428","0448","0460","0494","0495","0496","0502","0504","0505","0506","0507","0514","0657","0660","0661","0662","0664","0665","0666","0667","0669","0670","0672","0692","0708","0786","0796"],
+10:["0011","0048","0055","0059","0141","0206","0210","0211","0220","0239","0248","0281","0307","0323","0359","0363","0364","0403","0434","0454","0460","0465","0512","0518","0580","0582","0587","0588","0589","0591","0600","0637","0638","0639","0640","0646","0647","0649","0650","0657","0664","0721","0757","0796"]
+};
+
+// Look up a co-sponsored bill's info
+function coBill(num) {
+    const entry = B[num];
+    return entry ? [num, entry[0], entry[1]] : [num, "Intro " + num + "-2026", "C"];
+}
+
+// Direct Legistar URLs (pre-resolved from intro.nyc redirects)
+const LEGISTAR_URLS = {
+"0001":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861343&GUID=AF5DC0C4-C2EB-4C5D-861F-5B62DF8EA6EF",
+"0002":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824768&GUID=2199377F-6E1A-458E-92A2-A80567C6E565",
+"0003":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861351&GUID=0D2E0433-0BCE-44EE-8E39-D7C0CBB3A456",
+"0004":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861352&GUID=4717EB93-8D6A-4CF5-B65F-5B97F4169C7C",
+"0005":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824784&GUID=22F81091-E0D2-4065-B1E5-C2668960DC70",
+"0008":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861355&GUID=A03F9C7C-CE6A-4454-AABD-9367AAE7DC3A",
+"0009":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861356&GUID=8AD4BA27-E3D9-4E57-9697-451F3060272C",
+"0010":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861357&GUID=B3400797-1F3E-4F92-ACAA-969450F70D82",
+"0011":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861360&GUID=BE0EDD53-76F1-45F3-99E4-E504A1B25C37",
+"0012":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861359&GUID=51969066-09F4-416B-9984-BC5976A8AF19",
+"0013":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861358&GUID=E6BA53C0-9EC6-41B9-847A-1B7E5B259BF0",
+"0014":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861364&GUID=E3AAB32F-1D6F-4149-A01D-BE416A534A0E",
+"0015":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861362&GUID=4F536844-B24E-4827-91ED-8710B506C9A2",
+"0016":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861363&GUID=23552898-8F5E-41A9-9FE7-379248CC9B08",
+"0017":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861366&GUID=F4ADA7F9-9A07-4436-86C3-75B69D6D54D4",
+"0018":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824596&GUID=ACD25FB3-D0F6-4C6F-B397-AAB18B84A5F0",
+"0019":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861365&GUID=1E9C3F4C-EAE3-48BE-B8D9-73DCCDD885D1",
+"0021":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861371&GUID=C02D1D5A-A113-4476-BCAD-9135EB596DF9",
+"0022":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861344&GUID=65ADD919-CD03-4CC7-8532-E8608F339658",
+"0023":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861377&GUID=38F2E787-1325-43AF-9F0A-8AE32B1778C1",
+"0024":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861375&GUID=5E4BA244-BB5B-467B-AF5E-3F28C885345B",
+"0025":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861376&GUID=BB8E758A-DD33-4A0D-AAF8-CCCA2F9F2646",
+"0026":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861378&GUID=AEC308F5-8FA7-4F38-B8E8-1C15C64B4C85",
+"0027":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861380&GUID=39B939BB-6DE3-4812-9E46-5166259B399F",
+"0028":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861372&GUID=0351681A-22D9-45BC-881C-1F4007ED80F5",
+"0029":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861381&GUID=F83AB53B-CAA5-476C-A007-7C6A28BFCAE5",
+"0030":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861373&GUID=C53D6FC0-45AD-435E-9DF2-2B9897660EAD",
+"0031":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861374&GUID=34505287-D0AC-48AF-95F0-055CA00F2BB3",
+"0032":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861370&GUID=D8CE470F-D92A-404F-94A1-4F8F53FD2B1C",
+"0037":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861389&GUID=C659780F-7D6B-4A51-8998-DF0A863F5CB5",
+"0048":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861413&GUID=E8FE3D2E-E401-4B65-A238-0D56F32574EC",
+"0049":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861416&GUID=F30DE0D0-0101-49B4-8956-AF09BFD59CAC",
+"0050":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861414&GUID=E280FE9C-D17B-4F88-B34A-3D81161455CD",
+"0054":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861422&GUID=CB0103DB-63B2-41A4-81C8-0C797C634C40",
+"0055":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861433&GUID=5D1F3401-2B72-4B3F-A514-8C4949AA50AF",
+"0056":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861418&GUID=86D3291A-1844-4834-B315-E3A36AD408FC",
+"0058":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861424&GUID=6B13C45C-0E7C-4B5C-B1AE-8C3777CBF012",
+"0059":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861420&GUID=E1B75694-619D-40D6-8CEB-D646BEC15F35",
+"0061":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861450&GUID=271208D3-B8F3-47FB-B2AA-A93A91825D78",
+"0062":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861451&GUID=4E041496-00D0-41E5-84F2-A3CE97FC6FDC",
+"0063":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861460&GUID=A8AEAB90-51AB-47A4-B6AB-E182FF1BA6AC",
+"0065":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861456&GUID=38921A6C-5918-4595-B3B4-A770A9D19F63",
+"0066":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861461&GUID=7A3751D0-5FBB-45DD-846F-56781519DD62",
+"0067":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861457&GUID=BF8E5416-B73A-4322-B936-E72CA85FD5DE",
+"0068":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861459&GUID=0D0B68EB-E04D-44E0-9965-E8F74FB4CC14",
+"0069":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861475&GUID=FD552973-058B-4A12-82EA-6486E4BB09D3",
+"0070":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861470&GUID=405C5870-83AE-4A4F-B829-85691F5D0F43",
+"0071":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861465&GUID=ED513BD9-5B15-4117-B64C-D2500C22CCF1",
+"0072":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861472&GUID=4E1B00F6-9DF8-4FE0-B7E1-1BD799019B7D",
+"0073":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861471&GUID=04443FDB-E4B3-4985-A29E-0BF8C2F9EC44",
+"0074":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861473&GUID=2E757FB2-92F1-44F0-AAC1-B9CE096C266F",
+"0076":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861504&GUID=167C18DB-4F6D-45E5-B4A2-0A423FF46602",
+"0077":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861497&GUID=CDDD4BCE-3E9D-465B-AA94-4080BF8D026E",
+"0078":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861511&GUID=05BA3489-38FD-436D-9B55-B35A46A6CD96",
+"0079":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861493&GUID=28EFDC21-8B01-474E-9A03-3CCF3BB03DBE",
+"0080":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861494&GUID=8DD14DB6-578F-4F52-934C-BA6415721800",
+"0081":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861495&GUID=B7AC2BBA-AFE8-4976-ACA7-9A3DFA02C450",
+"0082":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861498&GUID=22F1F0CF-A786-4183-B8E3-0209EBC63AFE",
+"0083":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861509&GUID=F5A2C3FE-F5C0-435C-8571-C9D82DBA44F1",
+"0084":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861492&GUID=0EAA6C9D-2D2D-45A4-8A72-029B5C5962F6",
+"0085":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861523&GUID=EA2265B6-E11D-4635-8A8D-3995E055BFA1",
+"0086":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861507&GUID=A6F876A8-59A5-421C-9043-27E367183AD1",
+"0087":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861512&GUID=00F6A0F7-E9CF-40EE-B46E-ABEEE1803AB0",
+"0088":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861505&GUID=E5981DAB-87BC-4ABE-AA66-E9EF03F03BD2",
+"0089":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861506&GUID=7B8D380E-8C07-481B-A6D0-5DFDE9300BF2",
+"0090":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861496&GUID=C6FBEBDA-F7D4-49C1-B513-936830AC6AD4",
+"0091":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861499&GUID=ECAE8E98-4F92-458E-B3FB-1AB93845F2A3",
+"0092":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861508&GUID=28E55AEE-2E14-4EC7-9B19-E72F4D99F33F",
+"0093":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861510&GUID=59BE3DF7-D8B2-42F7-BECA-B4F38CE82D72",
+"0094":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861537&GUID=B342439D-217A-40C3-95D5-7F244E767B03",
+"0095":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861500&GUID=4E5C9D76-3CF2-480C-A12F-C66552F717A8",
+"0096":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861501&GUID=B2D0700D-0F0E-4DFE-886D-FD09108BA91B",
+"0097":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861502&GUID=683E508D-BDB8-42CD-A00B-9ED8616605B5",
+"0098":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861531&GUID=32B572D8-7B12-4E49-952A-B52FA69481D4",
+"0099":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7865205&GUID=1911B36A-91B8-4DE7-88EF-BD476F708964",
+"0100":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861530&GUID=F325D8DD-A06D-45E5-94A3-6A815EF778B2",
+"0101":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861532&GUID=030F5C0C-2581-4E66-86D4-B1FE05B74D76",
+"0102":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861503&GUID=3AE280AF-B0E0-4263-9840-DE1DE1142617",
+"0104":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7865209&GUID=24A393E1-0720-46BC-8391-26815843829B",
+"0113":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861685&GUID=B0B5C209-3285-4620-9811-39795CE3973C",
+"0114":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861688&GUID=92E5ADDC-DC85-47AF-9228-CE25F1E52890",
+"0115":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861687&GUID=EA786ABB-37E9-4966-8B67-FF930626E259",
+"0124":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861695&GUID=6A518AFE-C5E8-401D-9254-D523C66D2393",
+"0130":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861743&GUID=1A121967-A824-4F47-8A63-EFB268CD615D",
+"0133":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861745&GUID=7FAC5777-9DD5-4DA5-A1F8-23DB53ED9399",
+"0134":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861752&GUID=5E91F490-5BDF-4FC4-A361-8F34A5371E0B",
+"0140":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861753&GUID=578F66B4-BCFC-4536-A4E6-528ECB9E27F3",
+"0141":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861749&GUID=8666F5D1-9FFC-436F-B00F-4DBCFAD90D18",
+"0142":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861750&GUID=73522DC4-8C50-47EC-833B-A4FEF0F3D7D8",
+"0144":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861757&GUID=A523376E-F884-4DFE-BF21-5070685A0A41",
+"0150":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861800&GUID=51C9B661-E230-4A63-9314-A264C9BF8167",
+"0154":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861801&GUID=3BD2BB70-E7CD-48F8-B856-30C5D0948683",
+"0155":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861805&GUID=98F5F79B-2345-4804-8E13-D8E28D24AF55",
+"0156":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861852&GUID=844B4A4E-0C71-40A5-83A7-6E095BFB9F07",
+"0157":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861851&GUID=ADE90CDC-6C83-4BE9-9758-D36E7A42A468",
+"0158":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861812&GUID=301246B6-6801-4635-8BB0-C1B2C65BF443",
+"0159":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861811&GUID=99F06163-2888-4FDE-A356-7F338F613F47",
+"0160":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861809&GUID=B74D0D18-F0F5-4253-9CBC-AC7EF9AC7451",
+"0161":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861810&GUID=34B70F41-7D60-4866-9434-7EB17E68661C",
+"0162":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861853&GUID=4C7B821E-3C04-4AA5-966A-02E0DDF201A2",
+"0163":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861813&GUID=42D62B1C-D9BE-4B99-89D7-FB9B9FD9487C",
+"0164":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861808&GUID=68103F9F-7F16-4850-8E65-227EF0F419AD",
+"0165":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861543&GUID=98E8EAD5-FD0C-49D5-9115-4DEF63AE2E88",
+"0166":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861905&GUID=346662C8-DE4A-48B2-8579-7B06C85AE786",
+"0171":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861908&GUID=17FAAE83-CC1A-4770-93E3-8BC625FB878F",
+"0175":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861546&GUID=726744DC-06CC-4D1F-9BBB-DB78552E7AA5",
+"0177":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7865330&GUID=75393D22-FCD9-4658-9AE7-520B3C66F85B",
+"0178":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7865498&GUID=AD1BBE27-6216-43DA-B383-EC844FE71B20",
+"0182":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861920&GUID=932A795E-71D6-45BC-8445-ED6B12FD898F",
+"0183":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861925&GUID=0B1A5400-619F-4376-9C36-039CC400057C",
+"0185":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861921&GUID=276315DE-5672-48C3-B857-2D3C10A23441",
+"0187":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861917&GUID=3B6DC797-2C42-434F-814B-2E8E92B506CA",
+"0188":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861926&GUID=737A4CCB-7BB1-4635-9789-6CB2BCB1D46B",
+"0196":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861961&GUID=4B512226-FB33-454A-A74D-214B4980C99C",
+"0197":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861964&GUID=453D784D-9570-4343-9F7E-0EDB0DE5A49B",
+"0198":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861962&GUID=A1E0EF25-3725-4F9D-ACB6-0A47E5ADA3DC",
+"0203":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7827586&GUID=FF20353B-1856-4BF0-B471-4578500EB147",
+"0206":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861953&GUID=6B959EF2-1C3F-4E0C-9A8C-77A7D901240A",
+"0208":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861957&GUID=404AA8FD-1A91-48F7-B6A7-AF19031DDE26",
+"0209":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861948&GUID=F6229781-CF1B-44C0-A26D-31F1823CA49E",
+"0210":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861956&GUID=BD54545E-013B-495D-84CA-E1BC4DD2FB72",
+"0211":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861952&GUID=52D67D56-EF37-4292-8190-5EDE731C2A34",
+"0212":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861955&GUID=C3C58CAB-11E9-4D03-88AE-13368FBC12D0",
+"0213":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861954&GUID=1D5898C5-53CA-49DA-BA41-84EF0DD03FC3",
+"0214":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861951&GUID=BCC088FF-C640-438B-AFC3-A474ED30AFED",
+"0215":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861995&GUID=EA693722-D34D-4CE5-B019-1C4F0768A1FD",
+"0220":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862010&GUID=03FF028D-7722-4CBE-9FD1-259AE0B283C6",
+"0222":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862009&GUID=7F1C6CBF-01E2-4905-996F-4AFB9BB20A8B",
+"0225":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862004&GUID=63C18A60-701F-4619-9DE9-EE9223D56567",
+"0231":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862012&GUID=3BAB8636-9AD0-4BF4-BEE9-BC45EFC259F8",
+"0234":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862015&GUID=04E97600-BFF7-4777-8EB7-E487292C05AB",
+"0238":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862024&GUID=B13EBD5E-99F7-4F8C-B90C-3D78AAFC29B2",
+"0239":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862031&GUID=119A56E5-B391-4EA2-94F5-CEEC19ECE456",
+"0240":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862029&GUID=9DC0FFA2-4E37-444A-B68A-AAD6FFE845BB",
+"0241":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862034&GUID=9B777F86-63FE-41E8-8B0A-9BE6CF82AB52",
+"0242":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862021&GUID=08A34856-F652-4833-A063-2361B72653FB",
+"0243":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862027&GUID=A5A337E0-005D-4E30-ABCD-F364D70E11E3",
+"0244":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862032&GUID=FBA3B7D2-B295-4991-826B-B622192AAD5C",
+"0246":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862037&GUID=38FFEA8C-AA8A-4202-AE45-9AA39ADE812D",
+"0247":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862023&GUID=E710C4C9-7D32-4655-A626-FDE06859441B",
+"0248":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862039&GUID=94F9F018-AA6F-493C-9710-FEB9CD4CA947",
+"0249":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862025&GUID=25D112EA-7F83-49BE-BC52-DB70E8787550",
+"0252":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862033&GUID=DA735803-B41E-4EE5-B4EE-F25F146D1659",
+"0253":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862036&GUID=ED092737-66FB-4297-AF4E-3C1749C882BB",
+"0256":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862022&GUID=2794F0A1-6CB3-4837-8FB9-E9A46EA603E2",
+"0261":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862159&GUID=2B3D0330-0E6F-41E6-9B5F-E8B0E57F7777",
+"0262":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862109&GUID=8A4BD466-7D5B-4467-BA91-EBC8BCC76BFC",
+"0263":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862111&GUID=DDD188A5-C214-4B4E-89DD-BA67C56C0111",
+"0268":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862102&GUID=EF5C2FC7-F468-4606-96FC-C59EC7A41F81",
+"0270":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862161&GUID=C580E63A-B084-47FA-84FB-E7807CEC522F",
+"0271":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862110&GUID=546542BB-5BFE-40F4-B778-7941F56030B1",
+"0272":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862162&GUID=5CDBFD16-0971-4F5B-949F-6DB73F3CF226",
+"0279":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862169&GUID=4DFE1757-1B69-4BA7-8857-0DF2CAD03019",
+"0280":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862168&GUID=13346DF0-6B01-45EC-85D9-FE64F06AD355",
+"0281":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862158&GUID=3F2AE6E8-6DEF-4771-B63C-02E5DB7B2091",
+"0282":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862163&GUID=9012B7EF-72A4-4F01-8F44-EA50102F61C1",
+"0290":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862238&GUID=E5B0ACB5-AB35-463F-984F-7B3DC357897E",
+"0291":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824407&GUID=927C8475-3B08-4FB8-ADE9-148AA7BF8616",
+"0294":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862239&GUID=1B9D3730-CCAE-4B6E-B68A-ED34C02F4724",
+"0297":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861544&GUID=8D3565CC-2EC9-4C9C-81D8-C5B5628E08E6",
+"0298":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862312&GUID=767E5F2A-DB36-48E8-8349-1B67B29FA781",
+"0299":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862310&GUID=4EDB8FD9-0841-4F64-9D43-2D96336C5E7F",
+"0300":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862311&GUID=A24D17ED-7534-45D5-BAE3-7D637B510463",
+"0301":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862309&GUID=573ECFCB-3144-45DA-A437-E93DA1A5C236",
+"0302":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862316&GUID=E620AD9D-E0DB-4AE5-86EB-A93B420A8A9B",
+"0303":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862323&GUID=4C17F6C1-C0DD-4C6C-A619-DC2AFDA0EDDF",
+"0304":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862313&GUID=FB93D1D1-3A97-4145-BFE3-4D761AAAECD3",
+"0305":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862317&GUID=FEFD6E98-4AA6-4580-A0C8-8465ED36CF70",
+"0306":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862321&GUID=48DD110D-07CC-4187-BD3D-D87DD3F0ECE6",
+"0307":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862322&GUID=1ADDB264-A734-4ED7-BA0C-351B932AF950",
+"0308":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862315&GUID=05BEFE39-C144-4184-9F1E-A461E29A3F2D",
+"0309":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862314&GUID=E91E0E2A-B2FB-436E-9AD9-0A6BC86258A7",
+"0310":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862318&GUID=B4225BF7-6250-4479-B639-10076ACFC669",
+"0311":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862335&GUID=F4866306-7FC9-4061-883F-9D023FF18D7C",
+"0312":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862336&GUID=5E197F4C-8423-4D55-ACEE-5D7D61DA89C7",
+"0313":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862308&GUID=3E2CA78F-F471-43C1-8D2C-0B9B9506E708",
+"0319":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862382&GUID=84CC4659-2F8F-4F42-AB74-AC9198DE576E",
+"0320":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862352&GUID=D209C90E-B9D0-4E87-9FA4-DB32F745E5F5",
+"0322":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862387&GUID=59C378B0-43B9-4A11-A9F7-84DE39DC3DFC",
+"0323":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824756&GUID=0EBA6634-8D3E-49AD-91CA-0A8D1755355C",
+"0327":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861545&GUID=EFDD208A-72FC-4B10-B4B3-6EBF9EB6CFC4",
+"0330":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862409&GUID=7814AD72-E782-4250-BA29-5E91102ACC2E",
+"0340":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862415&GUID=A7DF6E76-357D-46FD-B59F-8FBF48ECC990",
+"0341":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862483&GUID=1D5C4510-25B0-4CCC-8871-0A8666AE5DA3",
+"0344":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862489&GUID=2FA8711A-9D0A-425A-ACF2-61D0E0F8EB4C",
+"0347":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862486&GUID=22988DD3-C6EE-4ED8-8C63-6D7705854667",
+"0352":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862487&GUID=D5A2E34A-A39E-4A0F-A18F-FE177E2E7BF9",
+"0357":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862496&GUID=795D3A84-C96E-4062-B473-E676E4B75942",
+"0359":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862595&GUID=8EDF3293-2E58-45EB-84E5-D1C298673CF8",
+"0360":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862597&GUID=605C8137-1DEE-43B7-9327-8FD7ED71A59D",
+"0361":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862598&GUID=63BE09B9-3E5C-4EA7-9C05-9A3DC286F908",
+"0363":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862592&GUID=636007E6-77D6-4ADF-9A95-1009D75E4623",
+"0364":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862593&GUID=AABBDA26-AB23-4F12-9F51-51933B0919B2",
+"0365":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862599&GUID=4D53E794-BA89-4104-8659-4655B2C42388",
+"0367":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862525&GUID=4E683868-20BF-4532-AEEA-C6BA115C5C84",
+"0369":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862596&GUID=B196A168-61B1-4E9A-A303-7EE95355FD52",
+"0377":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862661&GUID=E6E5264E-CFD2-4E84-9982-2B0FB2B4849E",
+"0381":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862673&GUID=584F6E45-86D7-4FCF-9CC3-1C84D30F748B",
+"0386":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862709&GUID=25D6ED25-99BE-491A-96C4-50D588840CD9",
+"0388":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7861345&GUID=3E83472B-ED93-4D2E-A0BD-45BC2F95A38E",
+"0390":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862714&GUID=4A8A9B53-453F-4696-84DC-0743EAF5DABD",
+"0394":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862718&GUID=AD982159-8320-45B1-88EF-884018573CAD",
+"0397":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862721&GUID=71388DB9-10AA-4765-9FA1-E2D8C2DC7089",
+"0402":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862712&GUID=A436800B-A877-4BF3-9419-179747248D3F",
+"0403":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862707&GUID=A550DFC7-A3AA-400B-9AE4-F09E90ADE62C",
+"0405":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866137&GUID=29B23134-13CB-40F6-AA23-78272685BCCF",
+"0406":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862776&GUID=7C5A92A3-D4CE-48FC-BB1D-D66C5CA72098",
+"0408":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862773&GUID=F904166A-C4C0-4A2E-9ECA-BB6C324B9D4D",
+"0409":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862774&GUID=B2809EA1-0E31-4D52-A9D5-81DE9D18734D",
+"0410":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862781&GUID=FA57D99D-AF78-40CB-8DC3-335ECB341A8C",
+"0412":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862779&GUID=D60B8F58-09A9-48DA-B825-BE3212337B36",
+"0413":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862782&GUID=4C8BE11C-F98F-4FF9-9F64-2E4300ADE44D",
+"0414":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862783&GUID=38B74FA5-020F-4153-968F-387BCC2670EB",
+"0415":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862780&GUID=1DD30301-E4B8-4BA1-8C32-904726CFDB30",
+"0416":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824694&GUID=80F26EAF-CFF9-4272-B5CB-44193750D4FF",
+"0420":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862815&GUID=B3D8FD94-7731-4D86-94FB-2473670A788B",
+"0421":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862816&GUID=1AB348BC-361C-490F-8F7B-0CC1157156EC",
+"0422":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862819&GUID=129D1F70-4289-4FEC-9123-D145B80CCF53",
+"0423":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862814&GUID=5CBD1C2E-9C46-4FE8-821F-4CACB1B79EA1",
+"0424":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862821&GUID=E90F0743-84BB-40ED-85DB-D9C6F352CA36",
+"0425":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862820&GUID=122FCBA9-339B-4CC5-8366-45CB37FB80C0",
+"0428":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862812&GUID=82868853-7D34-466F-B2FD-0617D9CF75DC",
+"0429":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862809&GUID=1028E47E-AD82-4FEB-A63D-5D41F602B9AC",
+"0430":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862810&GUID=EF441C2C-0FE9-455F-BF83-6E7A8B1BB6EB",
+"0432":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862849&GUID=2F666AC0-48C2-43B3-89A5-F6062321537A",
+"0434":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862851&GUID=72263FBD-B8BE-4170-A8F1-D52CCFB887B2",
+"0435":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862852&GUID=8DA4672A-581F-4304-A6D1-6BF0A87FE0A4",
+"0442":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862970&GUID=F7A5701E-A870-47E7-8C78-B8679B1AED52",
+"0444":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862971&GUID=846AD8FA-BA00-48BA-84FE-D599E92811E2",
+"0447":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862984&GUID=F1BB3B0F-45B7-420F-87EC-00F933D2613D",
+"0448":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824620&GUID=82610FD7-5216-4996-A8C3-FC130D1930AD",
+"0449":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862989&GUID=ABA0761F-DFC0-45C2-A93B-CC5AE575AF29",
+"0452":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862991&GUID=581BD3EC-8D53-47E2-86FC-51E9C64A0CF9",
+"0453":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862990&GUID=528635D5-4A91-4FE2-AD2F-F3D692662258",
+"0454":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862996&GUID=7D642A46-6A49-4469-B6F2-88412EDD35A5",
+"0456":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862988&GUID=13EE9FC9-D518-4916-8D38-1CA8199EBD5B",
+"0457":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862978&GUID=A5C962A7-3C38-4CF2-91F2-309CC7FD7983",
+"0459":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862981&GUID=43350D29-9E22-43D7-94F5-2555AED88869",
+"0460":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862986&GUID=F831EBA8-3660-4843-B7DA-1313DA76EB03",
+"0464":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862980&GUID=0FACCC14-BDC0-40AF-AE14-1926A2E00AE8",
+"0465":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7862987&GUID=B85E5E9B-ABA5-4C4A-9CAF-286B76408914",
+"0466":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866208&GUID=23137CF4-30B2-4179-8552-0C87A29F8999",
+"0470":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866301&GUID=EC6E6F2B-A296-48A0-9333-3E2AC635EF82",
+"0471":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866306&GUID=F41D7E0C-1EA8-4D1E-A7A8-D2D232E9D401",
+"0474":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866308&GUID=88038499-92BC-484F-94C9-D4AB7AD47B46",
+"0485":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866323&GUID=915E3D64-D3FE-429A-B696-FCAA87094D6D",
+"0488":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863054&GUID=BDE14E78-530A-4B96-A055-85587789A1BF",
+"0489":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863053&GUID=11246998-67FF-42AC-83FF-B7D1D1AFBCFF",
+"0494":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866332&GUID=1FBCBBE9-7825-44F0-BE81-BDEFC6EB31B6",
+"0495":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863296&GUID=A6523209-E896-4E02-8F2A-741D6C9B70E4",
+"0496":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863316&GUID=27D7E6A2-A9F9-4CDE-BF54-A25F545DA905",
+"0502":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7824730&GUID=C86B5BB5-1C5B-443D-9279-D83B45585557",
+"0504":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863350&GUID=A10F1372-8B9F-4F38-A60D-49D6D27A683A",
+"0505":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863293&GUID=123C0006-32F5-404F-9EE9-7819692265C8",
+"0506":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863292&GUID=F936B943-4892-426B-B3A8-AB0C3CCDD357",
+"0507":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863281&GUID=6B2D53DF-7F15-4DF1-9944-D8D2BFF61FEA",
+"0511":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7863377&GUID=4AD92D53-D7E9-4428-B9BB-4411A6FA7190",
+"0512":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866414&GUID=323CD85A-338B-4BD7-9455-A4F927011427",
+"0513":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866413&GUID=86B891AC-5F3F-48D6-86CD-4B8D507B0E40",
+"0514":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7866415&GUID=3C095807-BFC8-4502-B224-C5DB7DF93DC8",
+"0516":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879092&GUID=902D7A13-B5F1-48D5-A78D-1160386C6656",
+"0517":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879091&GUID=D5CCB254-CCFE-4E67-9BB1-13113C51309A",
+"0518":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879110&GUID=BDDD32F1-1178-492D-80F2-205845356FD2",
+"0519":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879099&GUID=6D5F48FB-1C69-452F-8EF0-93B93B57C9A9",
+"0520":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879100&GUID=5F3CFBCA-E77A-4E22-AF25-BDFF52891FB4",
+"0521":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879108&GUID=0DA7033F-3C86-4E93-AD37-1005EF30478A",
+"0522":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879101&GUID=2DF2F196-7B66-412B-9CF5-2F0D795E20EF",
+"0523":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879102&GUID=51BF5EE6-50E0-44DF-AB4B-D9BD603B1095",
+"0524":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879107&GUID=46D9B5DF-0463-4CCA-8671-BC8B92B454AC",
+"0525":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7864875&GUID=AF898084-8431-44DC-9428-04CE515A76F2",
+"0526":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879103&GUID=A7640445-6AF1-4A6B-AA9D-9324A7EADEEF",
+"0527":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879109&GUID=C28E4FB0-6C51-45F1-B138-F803FCE018C4",
+"0528":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879106&GUID=1E33212A-BDE3-4316-8ADA-C416BE6E2481",
+"0529":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879105&GUID=72EC67AC-9318-4DFE-8E4A-ED57C89CCE18",
+"0530":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879104&GUID=7E992113-7554-44F7-8469-6D638DDAD76C",
+"0531":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879112&GUID=2841CFCE-614C-4FCC-BE7C-AF66EE98A7BC",
+"0532":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879098&GUID=8D637360-7C45-474D-A3B8-0CCF4C6162C0",
+"0533":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879111&GUID=8771DA9F-C9B6-4F5F-AB65-669F14E881B2",
+"0535":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879114&GUID=723964DA-5F39-42C6-A237-CF49EE06B690",
+"0537":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879116&GUID=F07155F7-C963-4D26-81BD-A03B81F41ADF",
+"0540":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879113&GUID=9DB05B83-1951-472A-AEFD-84610536026A",
+"0546":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879124&GUID=D2B5B77E-E5BF-4535-9AC5-D61E03846E1E",
+"0547":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878499&GUID=8FD1EF99-F9AB-4812-A338-1EA7F002479A",
+"0548":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879241&GUID=85603865-29F0-4967-801B-2412B796C8A2",
+"0549":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879237&GUID=80204EA7-DA39-4714-8E0C-70B14129DA9E",
+"0551":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879239&GUID=1B090657-3EB8-4195-B59D-08DB7202FF44",
+"0553":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7865504&GUID=0EFCE8CD-543C-4E71-9253-F0255ED4E829",
+"0556":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879204&GUID=941203ED-13B3-42A1-9CC7-007761346616",
+"0557":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879205&GUID=BCF83A9E-A308-4C5F-93E2-0C93E916F0F6",
+"0558":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879206&GUID=1B78B8F1-376F-4BE7-977E-D6C7186E8F0B",
+"0559":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879207&GUID=C80624EB-E95B-4CFE-9BB9-D79171FD3910",
+"0560":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879208&GUID=25A2D355-49D8-4ABF-9491-192D7D944B02",
+"0563":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879236&GUID=FE9DC867-0D06-444F-91F6-D6BADBD996BA",
+"0564":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879211&GUID=3CE566FC-4E64-4E3B-91CB-FDF1C8B358BE",
+"0571":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879212&GUID=31AA4BB5-2D8B-4AA8-B3C5-17F4D0071FB3",
+"0574":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879223&GUID=DEAA2E33-2350-4182-9D2D-A44573F9B6FA",
+"0577":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879220&GUID=22775512-ECB7-4F83-BDC2-03039CC3C3D9",
+"0580":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7872585&GUID=E369344E-05E4-4F7D-AAC8-F9D15C8ADECC",
+"0582":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879200&GUID=BD077E0F-7E82-4CB5-AA48-8F98050AC4B0",
+"0583":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879202&GUID=BD7749E5-5C52-45A3-AC10-C8FD6DFEEB25",
+"0587":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879193&GUID=B3319A1F-D2B3-45DC-9238-1A9EA908C329",
+"0588":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879194&GUID=4D94E5DA-73B2-44EA-9B18-5A326F101AFA",
+"0589":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879197&GUID=82BA1AE9-3B02-4887-8C42-1021413CED0D",
+"0590":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879191&GUID=EF811246-FCEE-4A90-8600-16EBAB8D3C44",
+"0591":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879196&GUID=3BFF695A-4549-4F41-B704-E5CF67150568",
+"0593":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879291&GUID=8AA5FB08-9726-4F66-9C38-5ED5C2F98435",
+"0597":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879295&GUID=D4B3D97F-5DCB-4277-8C7A-287E8DCCEAB8",
+"0598":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879297&GUID=1DC3C0A3-DA62-4BD2-B429-BDB0882F3379",
+"0600":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879298&GUID=3E6DAB9B-6172-4A5B-B30C-E457B4156929",
+"0603":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879328&GUID=821ED9F0-D11D-4AF3-B7CE-04DD27A76B10",
+"0604":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879329&GUID=89B0ECFF-48AD-4FF4-8546-40EFD57FBE42",
+"0608":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879338&GUID=A1870257-7BBB-4FFC-B98E-B7527B973785",
+"0609":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879337&GUID=324EAEE6-5390-48AA-A207-770E6A7B4061",
+"0610":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879336&GUID=1C241355-86CB-4C48-8638-8BC076FC1237",
+"0611":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879335&GUID=04D764B4-EC8A-4883-A9A2-A906AD083E1A",
+"0613":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879334&GUID=756FB699-9A75-435A-8D2D-68942D97F5D9",
+"0619":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879361&GUID=4624407D-BC35-4799-9412-1753CAA566BE",
+"0622":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879327&GUID=BB4A96D1-B7B9-4DD7-9222-BA0019D145F3",
+"0630":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879415&GUID=90AE87E8-8D4D-48AD-9715-3C13BA8F1B50",
+"0632":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879411&GUID=5B919024-1785-4140-A5D4-61023C819961",
+"0633":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879413&GUID=4010BB3E-3279-4237-A0D9-A119E84ECD4B",
+"0635":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879395&GUID=610A5558-0EE5-4EAF-9584-A2F4CC1274D3",
+"0636":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879418&GUID=15B36B7B-792B-4BF3-9667-79C010636BA7",
+"0637":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879406&GUID=F6E57AC2-E529-43BE-8890-51185B248886",
+"0638":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879408&GUID=E6C69A11-29CD-4A4E-B6F5-A2250842C8C4",
+"0639":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879410&GUID=BA25B2A4-ED24-41E8-9E43-3F9CFDD5B830",
+"0640":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879412&GUID=77B4F14A-BD46-4D5F-B712-4C2A0F20B5FF",
+"0641":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879407&GUID=120A98E5-D2DA-4590-8A3B-30D6D967FE72",
+"0642":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879396&GUID=C7A7F3C0-7EAB-4E77-87DD-33A94345D74A",
+"0643":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879397&GUID=6B2ADABC-F2D5-4713-B6C4-501D0603913C",
+"0646":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879419&GUID=2A28B9DA-580C-4747-89CD-8BA0A39E91C1",
+"0647":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879420&GUID=C51C618C-DE62-4EE2-8094-B7722C00DB72",
+"0648":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879400&GUID=0A182054-F88E-4568-823F-F4A3EE4F63CF",
+"0649":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879414&GUID=289E17E1-DB74-4DE9-AEC8-35D282AD318E",
+"0650":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879416&GUID=1057BA16-C59C-4636-B7E2-E591B4DCB938",
+"0654":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879402&GUID=611E47F8-73BA-4168-ADF3-F1A497B560BE",
+"0655":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7872578&GUID=46E6E97F-D92B-4AA5-B62F-B746C8AD3BE9",
+"0656":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879417&GUID=2F540582-120A-4728-AC05-5F3100BB1FCD",
+"0657":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7872930&GUID=DCC5EF0A-7863-47F2-A95A-B28A03D414E0",
+"0660":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878688&GUID=B998E51A-8874-44CF-8951-917C579A488E",
+"0661":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878685&GUID=403D2DEC-6A86-4ADF-B4C4-FCE9BABC5B07",
+"0662":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878686&GUID=50050600-A44B-4032-AC10-00FF173BFA75",
+"0664":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878687&GUID=756B5628-176E-4AA2-BE5F-BDED7A7F2988",
+"0665":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878697&GUID=0E80AAC6-CC36-455C-9E31-B95ADC7D4118",
+"0666":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878698&GUID=BC3774B1-5258-431D-9E80-DE6356F547C3",
+"0667":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878786&GUID=563EB9F6-ADDF-4672-9825-5947B0A3CC85",
+"0669":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7879466&GUID=6C8587B3-64D6-4866-A302-1400CD05A87F",
+"0670":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878788&GUID=594C4876-67E2-47AB-980E-095600CC7D99",
+"0671":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878787&GUID=8C7E4A37-CF9C-4964-B2C4-8CFE1A0A2800",
+"0672":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878789&GUID=F7281BB2-40E9-469F-B744-E51A0BCB656E",
+"0674":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878971&GUID=2D0BA2DD-AAC5-4907-BFA6-3EA67F9C0391",
+"0676":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878974&GUID=DDA76168-1789-40A3-9EA4-EF39F029514B",
+"0677":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878972&GUID=231C9C8E-7093-451C-BD7A-EC997CD10EEA",
+"0680":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878981&GUID=55109E7C-6018-4497-9AD7-970D1862FF22",
+"0682":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878980&GUID=0E86AB2E-8472-498C-BEFD-290937CF0C5D",
+"0683":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7878982&GUID=4F98084A-6960-44BD-905D-B7BDE3B824B4",
+"0685":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927487&GUID=64AE3D51-0A35-4679-9EBF-3CBF3184CD48",
+"0687":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927426&GUID=031A8DD1-A2FE-49BA-AEBE-2F26AD081C2F",
+"0690":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927489&GUID=0EA7FF2D-43C0-4EFD-A786-6A9F273DF8BB",
+"0692":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927500&GUID=E6BADACD-DE03-4EDC-A5AD-EBBF530CBBB1",
+"0708":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927478&GUID=61BB212E-B5AA-4368-AD20-CB129C7EE190",
+"0716":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927434&GUID=3B7903AA-C234-47B0-8A00-EB02DC0A1908",
+"0717":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927451&GUID=507BB639-117C-44B6-98EB-40E8BFA85A4F",
+"0718":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927449&GUID=E376BE98-74DF-48F4-90F5-41CDC9745ACE",
+"0719":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927452&GUID=677573E4-0F8E-4848-B569-B1BC1F215ADE",
+"0720":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927448&GUID=1717A570-2C16-444F-877B-E07D1CA3F5D3",
+"0721":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7927450&GUID=C699AD67-1AA0-4CE1-B88C-706243EFECB4",
+"0724":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7943767&GUID=30BB4522-6251-4551-8EF1-479D34013697",
+"0725":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944742&GUID=6E83F344-D2DB-42E9-944D-1A80D9E8ECAD",
+"0726":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7929659&GUID=F288AA87-401D-4559-86CB-C19171383099",
+"0727":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7929685&GUID=09292107-F296-4223-BE36-EB9D3499C8B1",
+"0728":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944740&GUID=BA00821B-1305-48A5-B921-D1561885DCE1",
+"0729":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944739&GUID=319FB1CA-3233-4F79-992F-E554E2D8D38A",
+"0740":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944755&GUID=3E6680D2-F8F2-4E76-A492-2F6AA07DCF55",
+"0753":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944771&GUID=06FF518E-11E2-48EC-BCA4-B3C4F24D1FFC",
+"0757":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944787&GUID=8A9D75D7-55AE-4F9A-B411-69904826532F",
+"0773":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944888&GUID=E69F620E-CBCC-43A9-AE2F-74EDB1DF51F4",
+"0780":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7944915&GUID=F2F7F5D8-5435-4D0C-B4F8-ADC040F6E7E3",
+"0781":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961414&GUID=4ACA3B2E-77EA-484A-973B-A21AA0181A43",
+"0783":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961415&GUID=9ACD33F1-AEED-4ED7-B760-3DD4130DE6A5",
+"0784":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961420&GUID=A6C55056-09A1-4347-AC4C-777EE50E4FF3",
+"0785":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961418&GUID=D583C991-F816-4CEB-A429-ED9FAA60A3C2",
+"0786":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961428&GUID=B7DB1339-6118-464D-BFA5-9B930954E597",
+"0787":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961424&GUID=6080C82F-B849-4275-A2E8-0F6F84F6D81C",
+"0789":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961419&GUID=30DEB47F-1231-4D10-8A22-71423D53A736",
+"0795":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7953796&GUID=D20FE360-244E-4A9E-86EC-6AEBED8D8B7E",
+"0796":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961437&GUID=9450DD70-02CD-461A-A6C5-298FDDF01C51",
+"0799":"https://legistar.council.nyc.gov/LegislationDetail.aspx?ID=7961454&GUID=5F8BC250-B819-4F3E-8A64-AB476F1DF02B",
+};
+
+// Legistar URL lookup with intro.nyc fallback
+function legistarUrl(num) {
+    const padded = num.replace(/-.*/, '').padStart(4, '0');
+    return LEGISTAR_URLS[padded] || ("https://intro.nyc/" + padded + "-2026");
+}
+
+const STATUS_LABEL = {C:"In Committee",L:"Laid Over",M:"Mayor's Desk",E:"Enacted",X:"Did Not Pass"};
+const STATUS_COLOR = {C:"#888",L:"#d4a017",M:"#f1c40f",E:"#2ecc71",X:"#e74c3c"};
+
+// ═══════════════════════════
+// PORTRAIT PHOTOS
+// ═══════════════════════════
+const portraits = {};
+const pixCvs = document.createElement('canvas');
+pixCvs.width = 64; pixCvs.height = 64;
+const pixCtx = pixCvs.getContext('2d');
+
+const PHOTO_URLS = {
+    1: 'https://council.nyc.gov/christopher-marte/wp-content/uploads/sites/87/2023/03/DSCF3460-1.png',
+    2: 'https://council.nyc.gov/harvey-epstein/wp-content/uploads/sites/129/2025/12/HarveyE-Hero.jpeg',
+    4: 'https://council.nyc.gov/virginia-maloney/wp-content/uploads/sites/130/2025/12/VirginiaMaloney_Hero.jpeg',
+    5: 'https://council.nyc.gov/julie-menin/wp-content/uploads/sites/89/2026/02/Speaker-Julie-Menin-Final-Headshot-Cropped-819x1024.jpg',
+    6: 'https://council.nyc.gov/wp-content/uploads/sites/90/2021/12/Gale-Brewer-Hero-Image.png',
+    7: 'https://council.nyc.gov/wp-content/uploads/sites/91/2021/12/Shaun-Abreu-Hero-Image.jpg',
+    8: 'https://council.nyc.gov/wp-content/uploads/sites/133/2025/12/ElsieEncanacion_Hero2.jpg',
+    9: 'https://council.nyc.gov/wp-content/uploads/sites/119/2023/12/FD2DDFE7-0ADE-43DF-9802-9063326BB201-e1753296415869.jpg',
+    10: 'https://council.nyc.gov/carmen-de-la-rosa/wp-content/uploads/sites/93/2025/02/2025_02_04_Headshots_Carmen_De_La_Rosa_RETOUCHED_02-scaled.jpeg'
+};
+
+(function loadPhotos() {
+    for (const [id, url] of Object.entries(PHOTO_URLS)) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { portraits[id] = img; };
+        img.onerror = () => {
+            // Retry without CORS if blocked
+            const img2 = new Image();
+            img2.onload = () => { portraits[id] = img2; };
+            img2.src = url;
+        };
+        img.src = url;
+    }
+})();
+
+// ═══════════════════════════
+// MAP GENERATION
+// ═══════════════════════════
+function getManhattanBounds(y) {
+    if (y < 2 || y > 77) return null;
+    const cx = 20;
+    let hw;
+    if (y <= 7)       hw = 2 + (y - 2) * 1.2;
+    else if (y <= 15) hw = 8 + (y - 7) * 0.25;
+    else if (y <= 43) hw = 10;
+    else if (y <= 55) hw = 9;
+    else if (y <= 63) hw = 9 - (y - 55) * 0.5;
+    else              hw = 5 - (y - 63) * 0.3;
+    hw = Math.max(1, Math.floor(hw));
+    return { left: cx - hw, right: cx + hw };
+}
+
+function getDistrictAt(x, y) {
+    const b = getManhattanBounds(y);
+    if (!b || x < b.left || x > b.right) return 0;
+    const mid = (b.left + b.right) / 2;
+    if (y <= 13) return 10;
+    if (y <= 23) {
+        const w = b.right - b.left, third = Math.floor(w / 3);
+        if (x < b.left + third) return 7;
+        if (x > b.right - third) return 8;
+        return 9;
+    }
+    if (y <= 33) return x < mid ? 6 : 5;
+    if (y <= 43) return x < mid ? 3 : 4;
+    if (y <= 55) return x < mid ? 3 : 2;
+    return 1;
+}
+
+function generateMap() {
+    const m = [];
+    for (let y = 0; y < MAP_H; y++) {
+        m[y] = [];
+        for (let x = 0; x < MAP_W; x++) m[y][x] = getDistrictAt(x, y);
+    }
+    for (let y = 25; y <= 33; y++) {
+        const b = getManhattanBounds(y);
+        if (!b) continue;
+        const mid = Math.round((b.left + b.right) / 2);
+        for (let x = mid - 2; x <= mid + 2; x++)
+            if (x >= b.left && x <= b.right) m[y][x] = 11;
+    }
+    return m;
+}
+const map = generateMap();
+
+// ═══════════════════════════
+// PRE-RENDER MAP
+// ═══════════════════════════
+const mapCvs = document.createElement('canvas');
+mapCvs.width = MAP_W * TILE; mapCvs.height = MAP_H * TILE;
+const mctx = mapCvs.getContext('2d');
+function hash(x,y){return((x*374761+y*668265+x*y*13)%1000)/1000;}
+
+(function preRender() {
+    for (let y = 0; y < MAP_H; y++) {
+        for (let x = 0; x < MAP_W; x++) {
+            const d = map[y][x], px = x*TILE, py = y*TILE, h = hash(x,y);
+            if (d === 0) {
+                mctx.fillStyle = h > 0.5 ? WATER : WATER2;
+                mctx.fillRect(px,py,TILE,TILE);
+                if (h > 0.85) { mctx.fillStyle='#1a4a6c'; mctx.fillRect(px+(h*20|0),py+(h*12|0),5,2); }
+                continue;
+            }
+            if (d === 11) {
+                mctx.fillStyle = h > 0.5 ? '#2d5a1e' : '#3a6e2a';
+                mctx.fillRect(px,py,TILE,TILE);
+                if (h > 0.55) {
+                    mctx.fillStyle='#1a3a10'; mctx.fillRect(px+12,py+18,4,10);
+                    mctx.fillStyle=h>0.75?'#2a7518':'#3a9528';
+                    mctx.beginPath(); mctx.arc(px+14,py+14,9,0,Math.PI*2); mctx.fill();
+                }
+                if (x%3===0){mctx.fillStyle='#8a7a5a';mctx.fillRect(px+13,py,6,TILE);}
+                continue;
+            }
+            mctx.fillStyle = DISTRICT_COLORS[d]; mctx.fillRect(px,py,TILE,TILE);
+            if(h>0.4&&h<0.45){mctx.fillStyle='rgba(255,255,255,0.04)';mctx.fillRect(px,py,TILE,TILE);}
+            const isStH=y%4===0, isStV=x%5===0;
+            if(isStH||isStV){
+                mctx.fillStyle=DISTRICT_LIGHT[d]; mctx.globalAlpha=0.35;
+                if(isStH) mctx.fillRect(px,py+13,TILE,5);
+                if(isStV) mctx.fillRect(px+13,py,5,TILE);
+                mctx.globalAlpha=1;
+            }
+            if(!isStH&&!isStV&&h>0.62){
+                const bw=14+(h*14|0),bh=18+(h*10|0),bx=px+(TILE-bw)/2,by=py+(TILE-bh)/2;
+                mctx.fillStyle='rgba(0,0,0,0.3)'; mctx.fillRect(bx,by,bw,bh);
+                mctx.fillStyle='rgba(255,255,200,0.25)';
+                for(let wy=0;wy<3;wy++) for(let wx=0;wx<2;wx++)
+                    mctx.fillRect(bx+3+wx*(bw/2-2),by+3+wy*(bh/3-1),3,3);
+            }
+            if(!isStH&&!isStV&&h<0.12){
+                mctx.fillStyle='#1a4a12';mctx.fillRect(px+14,py+20,4,8);
+                mctx.fillStyle='#3a8528';mctx.beginPath();mctx.arc(px+16,py+16,7,0,Math.PI*2);mctx.fill();
+            }
+            if(d>=1&&d<=10){
+                const diff=(dx,dy)=>{const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=MAP_W||ny>=MAP_H)return true;const nd=map[ny][nx];return nd!==d&&nd!==0;};
+                mctx.fillStyle='rgba(255,255,255,0.2)';
+                if(diff(-1,0))mctx.fillRect(px,py,2,TILE);
+                if(diff(1,0))mctx.fillRect(px+TILE-2,py,2,TILE);
+                if(diff(0,-1))mctx.fillRect(px,py,TILE,2);
+                if(diff(0,1))mctx.fillRect(px,py+TILE-2,TILE,2);
+            }
+        }
+    }
+})();
+
+// ═══════════════════════════
+// GAME STATE
+// ═══════════════════════════
+let state = 'title';
+let player = {x:20*TILE+TILE/2, y:65*TILE+TILE/2, dir:3, frame:0, ft:0, moving:false};
+let camera = {x:0, y:0};
+let currentDistrict = 1;
+let visitedMembers = new Set();
+let nearNPC = null;
+let banner = {text:'', timer:0};
+let completionShown = false, completionTimer = 0;
+
+let dlg = {active:false, id:null, phase:'greeting', text:'', chars:0, ct:0, mi:0, legTab:0, legCursor:0, legScroll:0};
+
+// ═══════════════════════════
+// INPUT
+// ═══════════════════════════
+const keys = {};
+document.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Tab'].includes(e.key)) e.preventDefault();
+    if(state==='title'&&(e.key==='Enter'||e.key===' ')){state='playing';return;}
+    if(state==='playing'&&(e.key===' '||e.key==='Enter')&&nearNPC){startDialogue(nearNPC);return;}
+    if(state==='dialogue') handleDlgInput(e.key);
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ═══════════════════════════
+// SPRITES
+// ═══════════════════════════
+function drawSprite(sx,sy,dir,frame,colors,npcId) {
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(sx+6,sy+27,20,5);
+    ctx.fillStyle=colors.pants;
+    const lo=frame?3:0;
+    ctx.fillRect(sx+8-lo,sy+22,6,7); ctx.fillRect(sx+18+lo,sy+22,6,7);
+    ctx.fillStyle=colors.shirt; ctx.fillRect(sx+5,sy+12,22,11);
+    ctx.fillStyle=colors.skin;
+    const ao=frame?1:0;
+    if(dir===1){ctx.fillRect(sx+1,sy+13+ao,5,8);ctx.fillRect(sx+24,sy+13-ao,5,8);}
+    else if(dir===2){ctx.fillRect(sx+3,sy+13-ao,5,8);ctx.fillRect(sx+26,sy+13+ao,5,8);}
+    else{ctx.fillRect(sx+1,sy+13,5,8);ctx.fillRect(sx+26,sy+13,5,8);}
+    ctx.fillStyle=colors.skin; ctx.fillRect(sx+7,sy+2,18,11);
+    ctx.fillStyle=colors.hair;
+    if(dir===3){ctx.fillRect(sx+7,sy,18,9);}
+    else{ctx.fillRect(sx+7,sy,18,5);if(dir===1)ctx.fillRect(sx+7,sy,4,8);if(dir===2)ctx.fillRect(sx+21,sy,4,8);}
+    if(dir!==3){
+        ctx.fillStyle='#fff';ctx.fillRect(sx+10,sy+5,4,4);ctx.fillRect(sx+18,sy+5,4,4);
+        ctx.fillStyle='#111';const ex=dir===1?0:dir===2?2:1;
+        ctx.fillRect(sx+10+ex,sy+6,2,2);ctx.fillRect(sx+18+ex,sy+6,2,2);
+    }
+    if(npcId!=null){
+        const bob=Math.sin(Date.now()/300)*3;ctx.textAlign='center';
+        if(!visitedMembers.has(npcId)){ctx.fillStyle='#ffff00';ctx.font='bold 20px monospace';ctx.fillText('!',sx+16,sy-6+bob);}
+        else{ctx.fillStyle='#44ff44';ctx.font='bold 16px monospace';ctx.fillText('\u2713',sx+16,sy-4+bob);}
+        ctx.textAlign='left';
+    }
+}
+
+// ═══════════════════════════
+// DIALOGUE
+// ═══════════════════════════
+const MENU_OPTS = ['1. About this district','2. Landmarks & neighborhoods','3. Current issues','4. Bills & legislation','5. Goodbye'];
+const VISIBLE_BILLS = 4;
+
+function getLegBills() {
+    if (dlg.legTab === 0) return (LEGIS[dlg.id]||[]);
+    return (COLEGIS[dlg.id]||[]).map(n => coBill(n));
+}
+
+function startDialogue(id) {
+    const m = MEMBERS[id]; if(!m) return;
+    state='dialogue';
+    dlg={active:true,id,phase:'greeting',text:m.greeting,chars:0,ct:0,mi:0,legTab:0,legCursor:0,legScroll:0};
+    visitedMembers.add(id);
+}
+
+function handleDlgInput(key) {
+    if(!dlg.active) return;
+    if(key==='Escape'){dlg.active=false;state='playing';return;}
+    if(dlg.phase==='greeting'||dlg.phase==='response'){
+        if(key===' '||key==='Enter'){
+            if(dlg.chars<dlg.text.length) dlg.chars=dlg.text.length;
+            else dlg.phase='menu';
+        }
+        return;
+    }
+    if(dlg.phase==='menu'){
+        if(key==='ArrowUp'||key==='w') dlg.mi=Math.max(0,dlg.mi-1);
+        else if(key==='ArrowDown'||key==='s') dlg.mi=Math.min(4,dlg.mi+1);
+        else if(key==='Enter'||key===' ') selectOpt(dlg.mi);
+        else if(key>='1'&&key<='5') selectOpt(parseInt(key)-1);
+        return;
+    }
+    if(dlg.phase==='legislation'){
+        const bills = getLegBills();
+        const max = Math.max(0, bills.length - 1);
+        if(key==='ArrowUp'||key==='w') {
+            dlg.legCursor = Math.max(0, dlg.legCursor - 1);
+            if(dlg.legCursor < dlg.legScroll) dlg.legScroll = dlg.legCursor;
+        } else if(key==='ArrowDown'||key==='s') {
+            dlg.legCursor = Math.min(max, dlg.legCursor + 1);
+            if(dlg.legCursor > dlg.legScroll + VISIBLE_BILLS - 1) dlg.legScroll = dlg.legCursor - VISIBLE_BILLS + 1;
+        } else if(key==='Tab'||key==='ArrowLeft'||key==='ArrowRight') {
+            dlg.legTab = 1 - dlg.legTab;
+            dlg.legCursor = 0; dlg.legScroll = 0;
+        } else if(key==='Enter') {
+            if(bills.length > 0) {
+                const bill = bills[dlg.legCursor];
+                if(bill) window.open(legistarUrl(bill[0]), '_blank');
+            }
+        } else if(key===' '||key==='Escape') {
+            dlg.phase='menu';
+        }
+        return;
+    }
+}
+
+function selectOpt(i) {
+    const m = MEMBERS[dlg.id];
+    if(i===4){dlg.active=false;state='playing';return;}
+    if(i===3){dlg.phase='legislation';dlg.legTab=0;dlg.legCursor=0;dlg.legScroll=0;return;}
+    const topics=['about','landmarks','issues'];
+    dlg.phase='response'; dlg.text=m[topics[i]]||'...'; dlg.chars=0; dlg.ct=0;
+}
+
+function wrapText(text,x,y,maxW,lineH){
+    const words=text.split(' ');let line='',ty=y;
+    for(const w of words){const t=line+w+' ';
+        if(ctx.measureText(t).width>maxW&&line){ctx.fillText(line.trim(),x,ty);line=w+' ';ty+=lineH;}
+        else line=t;
+    }
+    if(line.trim()) ctx.fillText(line.trim(),x,ty);
+}
+
+// ═══════════════════════════
+// PORTRAIT RENDERING
+// ═══════════════════════════
+function drawPortrait(id, dx, dy, size) {
+    const photo = portraits[id];
+    const c = DISTRICT_COLORS[id]||'#555';
+
+    // Border
+    ctx.fillStyle = c;
+    ctx.fillRect(dx-3, dy-3, size+6, size+6);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(dx-3, dy-3, size+6, size+6);
+
+    if (photo) {
+        // Draw to tiny canvas then scale up for pixel effect
+        pixCtx.clearRect(0,0,64,64);
+        pixCtx.drawImage(photo, 0, 0, 64, 64);
+        const prev = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(pixCvs, dx, dy, size, size);
+        ctx.imageSmoothingEnabled = prev;
+    } else {
+        // Placeholder
+        ctx.fillStyle = '#222';
+        ctx.fillRect(dx, dy, size, size);
+        ctx.fillStyle = c;
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'center';
+        const m = MEMBERS[id];
+        const initials = id === 3 ? '?' : m.name.split(' ').map(w=>w[0]).filter(c=>c&&c!=='[').join('');
+        ctx.fillText(initials, dx + size/2, dy + size/2 + 5);
+        ctx.textAlign = 'left';
+    }
+}
+
+// ═══════════════════════════
+// UPDATE
+// ═══════════════════════════
+function update() {
+    if(state!=='playing') return;
+    let dx=0,dy=0;
+    if(keys['ArrowLeft']||keys['a']){dx=-SPEED;player.dir=1;}
+    if(keys['ArrowRight']||keys['d']){dx=SPEED;player.dir=2;}
+    if(keys['ArrowUp']||keys['w']){dy=-SPEED;player.dir=3;}
+    if(keys['ArrowDown']||keys['s']){dy=SPEED;player.dir=0;}
+    player.moving=dx!==0||dy!==0;
+    if(player.moving){
+        if(dx&&dy){dx*=0.707;dy*=0.707;}
+        const r=8;
+        const canGo=(px,py)=>{const tx=Math.floor(px/TILE),ty=Math.floor(py/TILE);if(tx<0||ty<0||tx>=MAP_W||ty>=MAP_H)return false;return map[ty][tx]>0;};
+        const nx=player.x+dx;
+        if(canGo(nx-r,player.y-r)&&canGo(nx+r,player.y-r)&&canGo(nx-r,player.y+r)&&canGo(nx+r,player.y+r))player.x=nx;
+        const ny=player.y+dy;
+        if(canGo(player.x-r,ny-r)&&canGo(player.x+r,ny-r)&&canGo(player.x-r,ny+r)&&canGo(player.x+r,ny+r))player.y=ny;
+        player.ft++;if(player.ft>8){player.frame=1-player.frame;player.ft=0;}
+    }else{player.frame=0;player.ft=0;}
+    const tx=Math.floor(player.x/TILE),ty=Math.floor(player.y/TILE);
+    const d=(ty>=0&&ty<MAP_H&&tx>=0&&tx<MAP_W)?map[ty][tx]:0;
+    if(d>0&&d!==currentDistrict){
+        currentDistrict=d;
+        banner={text:d<=10?`District ${d} - ${DISTRICT_NAMES[d]}`:DISTRICT_NAMES[d],timer:180};
+    }
+    if(banner.timer>0) banner.timer--;
+    nearNPC=null;
+    for(const[id,m]of Object.entries(MEMBERS)){
+        const nx=m.pos.x*TILE+TILE/2,ny=m.pos.y*TILE+TILE/2;
+        if(Math.hypot(player.x-nx,player.y-ny)<TILE*2){nearNPC=parseInt(id);break;}
+    }
+    camera.x+=((player.x-W/2)-camera.x)*0.1;
+    camera.y+=((player.y-H/2)-camera.y)*0.1;
+    camera.x=Math.max(0,Math.min(MAP_W*TILE-W,camera.x));
+    camera.y=Math.max(0,Math.min(MAP_H*TILE-H,camera.y));
+    if(visitedMembers.size===10&&!completionShown){completionShown=true;completionTimer=360;}
+    if(completionTimer>0) completionTimer--;
+}
+
+// ═══════════════════════════
+// RENDER
+// ═══════════════════════════
+function render() {
+    ctx.clearRect(0,0,W,H);
+    if(state==='title'){renderTitle();return;}
+
+    ctx.drawImage(mapCvs, camera.x, camera.y, W, H, 0, 0, W, H);
+
+    for(const[id,m]of Object.entries(MEMBERS)){
+        const sx=m.pos.x*TILE-camera.x,sy=m.pos.y*TILE-camera.y;
+        if(sx>-TILE*2&&sx<W+TILE&&sy>-TILE*2&&sy<H+TILE){
+            const npcPx=m.pos.x*TILE+TILE/2,npcPy=m.pos.y*TILE+TILE/2;
+            const ddx=player.x-npcPx,ddy=player.y-npcPy;
+            const ndir=Math.abs(ddx)>Math.abs(ddy)?(ddx>0?2:1):(ddy>0?0:3);
+            ctx.shadowColor=DISTRICT_COLORS[parseInt(id)]||'#fff';ctx.shadowBlur=12;
+            drawSprite(sx,sy,ndir,0,m.color,parseInt(id));
+            ctx.shadowBlur=0;
+        }
+    }
+
+    const psx=player.x-TILE/2-camera.x,psy=player.y-TILE/2-camera.y;
+    drawSprite(psx,psy,player.dir,player.frame,{shirt:'#3366cc',hair:'#2c1810',skin:'#d4a574',pants:'#2c3e50'},null);
+
+    if(nearNPC&&state==='playing'){
+        ctx.fillStyle='rgba(0,0,0,0.75)';
+        ctx.fillRect(W/2-110,H-85,220,30);ctx.strokeStyle='#aaa';ctx.strokeRect(W/2-110,H-85,220,30);
+        ctx.fillStyle='#fff';ctx.font='14px monospace';ctx.textAlign='center';
+        ctx.fillText('Press SPACE to talk',W/2,H-65);ctx.textAlign='left';
+    }
+
+    if(banner.timer>0){
+        let a=1;if(banner.timer>150)a=(180-banner.timer)/30;else if(banner.timer<30)a=banner.timer/30;
+        ctx.globalAlpha=a;ctx.fillStyle='rgba(0,0,0,0.85)';
+        ctx.fillRect(W/2-210,55,420,50);ctx.strokeStyle=DISTRICT_COLORS[currentDistrict]||'#fff';
+        ctx.lineWidth=2;ctx.strokeRect(W/2-210,55,420,50);
+        ctx.fillStyle='#fff';ctx.font='bold 18px monospace';ctx.textAlign='center';
+        ctx.fillText(banner.text,W/2,86);ctx.textAlign='left';ctx.lineWidth=1;ctx.globalAlpha=1;
+    }
+
+    // HUD top-left
+    ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(8,8,220,48);
+    ctx.strokeStyle=DISTRICT_COLORS[currentDistrict]||'#555';ctx.strokeRect(8,8,220,48);
+    ctx.font='12px monospace';
+    if(currentDistrict===11){ctx.fillStyle='#fff';ctx.fillText('Central Park',16,26);ctx.fillStyle='#4a9e38';ctx.fillText('Enjoy the greenery',16,44);}
+    else if(MEMBERS[currentDistrict]){ctx.fillStyle='#fff';ctx.fillText(MEMBERS[currentDistrict].district,16,26);ctx.fillStyle=DISTRICT_COLORS[currentDistrict];ctx.fillText(MEMBERS[currentDistrict].name.substring(0,28),16,44);}
+
+    // Progress
+    ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(W-185,8,177,48);ctx.strokeStyle='#555';ctx.strokeRect(W-185,8,177,48);
+    ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText(`Met: ${visitedMembers.size} / 10 members`,W-177,28);
+    for(let i=1;i<=10;i++){
+        const dx=W-177+(i-1)*17;ctx.fillStyle=visitedMembers.has(i)?DISTRICT_COLORS[i]:'#333';ctx.fillRect(dx,36,13,13);
+        if(visitedMembers.has(i)){ctx.fillStyle='#fff';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(i+'',dx+7,46);ctx.textAlign='left';}
+    }
+
+    renderMinimap();
+    if(state==='dialogue'&&dlg.active) renderDialogue();
+
+    if(completionTimer>0){
+        let a=1;if(completionTimer>330)a=(360-completionTimer)/30;else if(completionTimer<30)a=completionTimer/30;
+        ctx.globalAlpha=a;ctx.fillStyle='rgba(0,0,0,0.85)';ctx.fillRect(W/2-250,H/2-50,500,100);
+        ctx.strokeStyle='#ffd700';ctx.lineWidth=3;ctx.strokeRect(W/2-250,H/2-50,500,100);
+        ctx.fillStyle='#ffd700';ctx.font='bold 22px monospace';ctx.textAlign='center';
+        ctx.fillText('ALL 10 MEMBERS MET!',W/2,H/2-10);
+        ctx.fillStyle='#fff';ctx.font='14px monospace';
+        ctx.fillText("You've explored all of Manhattan's council districts.",W/2,H/2+20);
+        ctx.textAlign='left';ctx.lineWidth=1;ctx.globalAlpha=1;
+    }
+}
+
+function renderMinimap() {
+    const mmW=55,mmH=150,mx=W-mmW-14,my=H-mmH-14;
+    ctx.fillStyle='rgba(0,0,0,0.75)';ctx.fillRect(mx-3,my-3,mmW+6,mmH+6);
+    ctx.strokeStyle='#555';ctx.strokeRect(mx-3,my-3,mmW+6,mmH+6);
+    const sx=mmW/MAP_W,sy=mmH/MAP_H;
+    for(let y=0;y<MAP_H;y+=2)for(let x=0;x<MAP_W;x+=2){
+        const d=map[y][x];if(d===0)continue;
+        ctx.fillStyle=d===11?'#3a8c28':(DISTRICT_COLORS[d]||'#666');
+        ctx.fillRect(mx+x*sx,my+y*sy,Math.ceil(sx*2),Math.ceil(sy*2));
+    }
+    const ppx=mx+(player.x/TILE)*sx,ppy=my+(player.y/TILE)*sy;
+    ctx.fillStyle='#fff';ctx.fillRect(ppx-2,ppy-2,4,4);
+    if(Math.floor(Date.now()/400)%2){ctx.fillStyle='#ff0';ctx.fillRect(ppx-1,ppy-1,3,3);}
+}
+
+function renderDialogue() {
+    const m = MEMBERS[dlg.id]; if(!m) return;
+    const boxH = 220, boxY = H - boxH - 10;
+    const c = DISTRICT_COLORS[dlg.id]||'#888';
+    const PORTRAIT_SIZE = 84;
+    const textX = 36 + PORTRAIT_SIZE + 12; // after portrait + gap
+    const textW = W - textX - 30;
+
+    // Box
+    ctx.fillStyle='rgba(8,8,24,0.95)';ctx.fillRect(16,boxY,W-32,boxH);
+    ctx.strokeStyle=c;ctx.lineWidth=3;ctx.strokeRect(16,boxY,W-32,boxH);ctx.lineWidth=1;
+
+    // Name plate
+    ctx.fillStyle=c;
+    const nameStr = `${m.name}  (${m.district})`;
+    const npW = Math.min(380, ctx.measureText(nameStr).width + 30);
+    ctx.fillRect(textX-4,boxY-14,npW,28);ctx.strokeStyle='#ddd';ctx.strokeRect(textX-4,boxY-14,npW,28);
+    ctx.fillStyle='#fff';ctx.font='bold 13px monospace';ctx.fillText(nameStr,textX+6,boxY+4);
+
+    // Portrait
+    drawPortrait(dlg.id, 30, boxY + 18, PORTRAIT_SIZE);
+
+    if(dlg.phase==='greeting'||dlg.phase==='response') {
+        dlg.ct++; if(dlg.ct>=1){dlg.chars=Math.min(dlg.text.length,dlg.chars+2);dlg.ct=0;}
+        ctx.fillStyle='#eee';ctx.font='14px monospace';
+        wrapText(dlg.text.substring(0,dlg.chars),textX,boxY+36,textW,18);
+        if(dlg.chars>=dlg.text.length&&Math.floor(Date.now()/500)%2){
+            ctx.fillStyle='#aaa';ctx.font='12px monospace';ctx.textAlign='right';
+            ctx.fillText('SPACE \u25bc',W-40,boxY+boxH-14);ctx.textAlign='left';
+        }
+    }
+
+    if(dlg.phase==='menu') {
+        ctx.fillStyle='#ccc';ctx.font='14px monospace';ctx.fillText('What would you like to know?',textX,boxY+36);
+        MENU_OPTS.forEach((opt,i) => {
+            const oy = boxY + 58 + i * 24;
+            ctx.fillStyle = i===dlg.mi ? c : '#666';
+            ctx.font = i===dlg.mi ? 'bold 13px monospace' : '13px monospace';
+            ctx.fillText((i===dlg.mi?'\u25b6 ':'  ')+opt, textX, oy);
+        });
+    }
+
+    if(dlg.phase==='legislation') {
+        const bills = getLegBills();
+        const priCount = (LEGIS[dlg.id]||[]).length;
+        const coCount = (COLEGIS[dlg.id]||[]).length;
+
+        // Tab bar
+        const tabY = boxY + 26;
+        // Primary tab
+        const priLabel = `PRIMARY (${priCount})`;
+        const coLabel = `CO-SPONSORED (${coCount})`;
+        ctx.font = 'bold 12px monospace';
+        const priW = ctx.measureText(priLabel).width + 16;
+        const coW = ctx.measureText(coLabel).width + 16;
+
+        // Primary tab bg
+        ctx.fillStyle = dlg.legTab === 0 ? c : '#333';
+        ctx.globalAlpha = dlg.legTab === 0 ? 0.8 : 0.4;
+        ctx.fillRect(textX, tabY - 12, priW, 18);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = dlg.legTab === 0 ? '#fff' : '#999';
+        ctx.fillText(priLabel, textX + 8, tabY);
+
+        // Co-sponsored tab bg
+        ctx.fillStyle = dlg.legTab === 1 ? c : '#333';
+        ctx.globalAlpha = dlg.legTab === 1 ? 0.8 : 0.4;
+        ctx.fillRect(textX + priW + 6, tabY - 12, coW, 18);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = dlg.legTab === 1 ? '#fff' : '#999';
+        ctx.fillText(coLabel, textX + priW + 14, tabY);
+
+        // Tab hint
+        ctx.fillStyle = '#555'; ctx.font = '10px monospace';
+        ctx.fillText('TAB to switch', textX + priW + coW + 20, tabY);
+
+        // Bill list
+        const listY = tabY + 14;
+        const rowH = 34;
+
+        if (bills.length === 0) {
+            ctx.fillStyle = '#666'; ctx.font = '13px monospace';
+            ctx.fillText(dlg.id === 3 ? 'Seat vacant - no current legislation' : 'No bills in this category', textX, listY + 16);
+        } else {
+            for (let vi = 0; vi < VISIBLE_BILLS && dlg.legScroll + vi < bills.length; vi++) {
+                const idx = dlg.legScroll + vi;
+                const bill = bills[idx];
+                const by = listY + vi * rowH;
+                const isSelected = idx === dlg.legCursor;
+
+                // Highlight bar
+                if (isSelected) {
+                    ctx.fillStyle = c; ctx.globalAlpha = 0.2;
+                    ctx.fillRect(textX - 4, by - 2, textW + 8, rowH - 2);
+                    ctx.globalAlpha = 1;
+                }
+
+                // Cursor
+                ctx.fillStyle = isSelected ? '#fff' : '#888';
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText(isSelected ? '\u25b6' : ' ', textX - 2, by + 10);
+
+                // Bill number
+                ctx.fillStyle = isSelected ? '#fff' : '#ccc';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(`Int ${bill[0]}`, textX + 14, by + 10);
+
+                // Status badge
+                const sc = STATUS_COLOR[bill[2]] || '#888';
+                const sl = STATUS_LABEL[bill[2]] || bill[2];
+                ctx.fillStyle = sc; ctx.font = 'bold 9px monospace';
+                const badgeX = textX + 100;
+                ctx.globalAlpha = 0.3; ctx.fillRect(badgeX, by, ctx.measureText(sl).width + 8, 13); ctx.globalAlpha = 1;
+                ctx.fillStyle = sc;
+                ctx.fillText(sl, badgeX + 4, by + 10);
+
+                // Title
+                ctx.fillStyle = isSelected ? '#ddd' : '#888';
+                ctx.font = '11px monospace';
+                let title = bill[1];
+                const maxTitleW = textW - 20;
+                while (ctx.measureText(title).width > maxTitleW && title.length > 15) title = title.slice(0, -4) + '...';
+                ctx.fillText(title, textX + 14, by + 24);
+            }
+
+            // Scroll indicators
+            if (dlg.legScroll > 0) {
+                ctx.fillStyle = '#aaa'; ctx.font = '12px monospace'; ctx.textAlign = 'right';
+                ctx.fillText('\u25b2 more', W - 40, listY + 6); ctx.textAlign = 'left';
+            }
+            if (dlg.legScroll + VISIBLE_BILLS < bills.length) {
+                ctx.fillStyle = '#aaa'; ctx.font = '12px monospace'; ctx.textAlign = 'right';
+                ctx.fillText('\u25bc more', W - 40, listY + VISIBLE_BILLS * rowH - 8); ctx.textAlign = 'left';
+            }
+        }
+
+        // Footer
+        ctx.fillStyle = '#666'; ctx.font = '11px monospace';
+        const pos = bills.length > 0 ? `${dlg.legCursor + 1}/${bills.length}` : '0/0';
+        ctx.fillText(`${pos}  |  \u2191\u2193 Scroll  |  ENTER: Legistar  |  SPACE: Back`, textX, boxY + boxH - 12);
+    }
+}
+
+// ═══════════════════════════
+// TITLE SCREEN
+// ═══════════════════════════
+function renderTitle() {
+    ctx.fillStyle='#080810';ctx.fillRect(0,0,W,H);
+    const blds=[[40,180],[70,140],[100,200],[140,120],[170,160],[210,260],[250,130],[290,200],[330,280],[370,150],[410,220],[450,170],[490,240],[530,300],[570,160],[610,200],[640,250],[680,140],[720,180],[760,130]];
+    for(const[bx,bh]of blds){
+        const by=H-bh-30;ctx.fillStyle='#121828';ctx.fillRect(bx,by,26,bh);
+        for(let wy=by+8;wy<H-38;wy+=14)for(let wx=bx+3;wx<bx+24;wx+=7){
+            const h=hash(wx,wy);ctx.fillStyle=h>0.6?'#ffd700':h>0.4?'#334':'#223';ctx.fillRect(wx,wy,4,6);
+        }
+    }
+    ctx.fillStyle='#1a1a2a';ctx.fillRect(0,H-30,W,30);
+    const barW=W/10;for(let i=1;i<=10;i++){ctx.fillStyle=DISTRICT_COLORS[i];ctx.globalAlpha=0.6;ctx.fillRect((i-1)*barW,H-30,barW,4);ctx.globalAlpha=1;}
+    ctx.fillStyle='#fff';ctx.font='bold 52px monospace';ctx.textAlign='center';ctx.fillText('NYC COUNCIL',W/2,155);
+    ctx.fillStyle='#ffd700';ctx.fillText('QUEST',W/2,215);
+    ctx.fillStyle='#999';ctx.font='16px monospace';ctx.fillText('Walk the districts. Meet your representatives.',W/2,268);
+    ctx.fillStyle='#777';ctx.font='14px monospace';ctx.fillText('Manhattan Edition  |  10 Council Districts',W/2,296);
+    if(Math.floor(Date.now()/600)%2){ctx.fillStyle='#fff';ctx.font='bold 20px monospace';ctx.fillText('Press ENTER to start',W/2,380);}
+    ctx.fillStyle='#555';ctx.font='12px monospace';
+    ctx.fillText('Arrow Keys / WASD to move  |  SPACE to interact',W/2,440);
+    ctx.fillText('1-5 or Arrow Keys to choose dialogue options',W/2,462);
+    ctx.textAlign='left';
+}
+
+// ═══════════════════════════
+// GAME LOOP
+// ═══════════════════════════
+function loop(){update();render();requestAnimationFrame(loop);}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
