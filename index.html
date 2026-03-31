@@ -1348,14 +1348,31 @@ function handleDlgInput(key) {
         if(key==='Tab'||(key==='ArrowDown'&&dlg.emField<3)||(key==='ArrowUp'&&dlg.emField>0)){
             if(key==='Tab'||key==='ArrowDown') dlg.emField=Math.min(3,dlg.emField+1);
             else dlg.emField=Math.max(0,dlg.emField-1);
-        } else if(dlg.emField===3 && (key==='Enter'||key===' ')){
-            // Send via mailto
+        } else if(dlg.emField===3 && (key==='Enter'||key===' ') && !dlg.emSending){
+            // Send via Cloudflare Worker
             const m = MEMBERS[dlg.id];
-            const to = encodeURIComponent(m.email);
-            const cc = encodeURIComponent(dlg.emCc);
-            const subj = encodeURIComponent(dlg.emSubject);
-            const body = encodeURIComponent(dlg.emBody);
-            window.open(`mailto:${m.email}?cc=${cc}&subject=${subj}&body=${body}`,'_blank');
+            if(!dlg.emCc||!dlg.emCc.includes('@')){dlg.emStatus='Enter a valid email in CC';return;}
+            if(!dlg.emSubject){dlg.emStatus='Enter a subject';return;}
+            if(!dlg.emBody){dlg.emStatus='Enter a message';return;}
+            dlg.emSending=true; dlg.emStatus='Sending...';
+            fetch('https://council-game-email.danielgolliher.workers.dev',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    toEmail: m.email,
+                    fromEmail: dlg.emCc,
+                    memberName: m.name,
+                    district: m.district,
+                    subject: dlg.emSubject,
+                    message: dlg.emBody
+                })
+            }).then(r=>r.json()).then(r=>{
+                dlg.emSending=false;
+                dlg.emStatus=r.success?'Sent! Check your CC inbox.':'Error: '+(r.error||'Failed');
+            }).catch(e=>{
+                dlg.emSending=false;
+                dlg.emStatus='Network error - try again';
+            });
         } else if(dlg.emField < 3){
             const f = fields[dlg.emField];
             if(key==='Backspace'){
@@ -1373,7 +1390,7 @@ function handleDlgInput(key) {
 function selectOpt(i) {
     const m = MEMBERS[dlg.id];
     if(i===5){dlg.active=false;state='playing';return;}
-    if(i===4){dlg.phase='email';dlg.emCc='';dlg.emSubject='';dlg.emBody='';dlg.emField=0;return;}
+    if(i===4){dlg.phase='email';dlg.emCc='';dlg.emSubject='';dlg.emBody='';dlg.emField=0;dlg.emSending=false;dlg.emStatus='';return;}
     if(i===3){dlg.phase='legislation';dlg.legTab=0;dlg.legCursor=0;dlg.legScroll=0;return;}
     if(i===2){dlg.phase='issues';dlg.socCursor=0;dlg.socScroll=0;return;}
     const topics=['about','landmarks'];
@@ -1782,12 +1799,20 @@ function renderDialogue() {
         ctx.strokeStyle=isSendFoc?'#fff':'#666';
         ctx.strokeRect(textX, btnY, btnW, 22);
         ctx.fillStyle='#fff';ctx.font='bold 12px monospace';ctx.textAlign='center';
-        ctx.fillText('SEND EMAIL', textX+btnW/2, btnY+15);
+        ctx.fillText(dlg.emSending?'SENDING...':'SEND EMAIL', textX+btnW/2, btnY+15);
         ctx.textAlign='left';
+
+        // Status message
+        if(dlg.emStatus){
+            const isErr = dlg.emStatus.startsWith('Error')||dlg.emStatus.startsWith('Enter')||dlg.emStatus.startsWith('Network');
+            ctx.fillStyle=dlg.emStatus.startsWith('Sent')?'#2ecc71':isErr?'#e74c3c':'#f1c40f';
+            ctx.font='bold 11px monospace';
+            ctx.fillText(dlg.emStatus, textX+btnW+12, btnY+10);
+        }
 
         // Footer
         ctx.fillStyle='#666';ctx.font='10px monospace';
-        ctx.fillText('TAB/\u2191\u2193: switch fields  |  ENTER: send  |  ESC: back', textX+btnW+12, btnY+14);
+        ctx.fillText('TAB/\u2191\u2193: switch fields  |  ENTER: send  |  ESC: back', textX, boxY+boxH-12);
     }
 
     if(dlg.phase==='issues') {

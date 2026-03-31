@@ -1,0 +1,6 @@
+name = "council-game-email"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+# After deploying, set your Resend API key as a secret:
+#   cd email-worker && npx wrangler secret put RESEND_API_KEY
