@@ -180,6 +180,30 @@ const MEMBERS = {
 };
 
 // ═══════════════════════════
+// SQUIRREL NPC (Central Park Squirrel Census)
+// ═══════════════════════════
+const SQUIRREL = {
+    pos:{x:20,y:29},
+    greeting:"*chitters excitedly* Hey there, human! I'm one of 3,023 squirrels counted in the 2018 Central Park Squirrel Census. Yes, someone actually counted all of us. Over 11 days in October. Ask me anything!",
+    topics:[
+        "What is the Squirrel Census?",
+        "Fur colors",
+        "What we do all day",
+        "Sounds & human interactions",
+        "Fun facts",
+        "See the data (NYC Open Data)",
+        "Bye!"
+    ],
+    responses:[
+        "The Central Park Squirrel Census was conducted October 6-20, 2018. Volunteer counters surveyed all 843 acres of Central Park over 11 days and logged 3,023 individual squirrel sightings. Each squirrel's location, fur color, activities, sounds, and behavior toward humans was recorded. It's real science! Dataset ID: vfnx-vebw on NYC Open Data.",
+        "FUR COLORS: Gray: 2,473 (81.8%) - that's most of us! Cinnamon/Red: 392 (13.0%) - the fancy ones. Black: 103 (3.4%) - rare and mysterious. Unknown: 55 (1.8%) - we were moving too fast. Fun fact: Cinnamon squirrels are TWICE as likely to approach humans (11.2% vs 5.1% for grays). Black squirrels are the most skittish - 31.1% run from you!",
+        "ACTIVITIES (we multitask!): Foraging: 47.5% - gotta find those acorns. Eating: 25.1% - found them! Running: 24.1% - zoom zoom. Climbing: 21.8% - trees are our highways. Chasing: 9.2% - sometimes you gotta chase a rival. 28.3% of us were doing 2+ things at once. And 6.6% were doing absolutely nothing. Just vibing. Also spotted: digging, sitting, walking, burying, playing, and jumping.",
+        "SOUNDS: 95.4% of us are COMPLETELY SILENT. Only 139 out of 3,023 made any noise! Kuks (sharp barks): 102 (3.4%). Quaas (whiny calls): 50 (1.7%). Moans: just 3 in the ENTIRE PARK (0.1%). HUMAN INTERACTIONS: 48.1% of us are totally indifferent to you. 22.4% run away. Only 5.9% approach humans. Juveniles are slightly bolder (6.7% approach). Census-taker notes include squirrels described as 'curious,' 'chilling,' and 'staring.'",
+        "FUN FACTS: One squirrel was spotted 180 FEET up a tree (average is 15 ft). Only 4 squirrels in the entire census were both bold enough to approach humans AND vocal - the main characters. 85% of us are adults, 11% juveniles. PM squirrels forage more than AM squirrels (49.8% vs 44.6%). The busiest hectare (14D) had 32 squirrels. October 13 was peak squirrel day with 434 sightings. And black squirrels are the most vocal at 4.9% making sounds."
+    ]
+};
+
+// ═══════════════════════════
 // LEGISLATION DATA (Primary Sponsored, from intro.nyc, 2026-2029 session)
 // Format: [bill number, title, status]  Status: C=Committee, L=Laid Over, M=Mayor's Desk, E=Enacted
 // ═══════════════════════════
@@ -1229,7 +1253,11 @@ document.addEventListener('keydown', e => {
     keys[e.key] = true;
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Tab','Backspace'].includes(e.key)) e.preventDefault();
     if(state==='title'&&(e.key==='Enter'||e.key===' ')){state='playing';return;}
-    if(state==='playing'&&(e.key===' '||e.key==='Enter')&&nearNPC){startDialogue(nearNPC);return;}
+    if(state==='playing'&&(e.key===' '||e.key==='Enter')&&nearNPC){
+        if(nearNPC==='sq') startSquirrelDialogue();
+        else startDialogue(nearNPC);
+        return;
+    }
     if(state==='dialogue') handleDlgInput(e.key);
 });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
@@ -1265,6 +1293,45 @@ function drawSprite(sx,sy,dir,frame,colors,npcId) {
     }
 }
 
+function drawSquirrel(sx, sy) {
+    const bob = Math.sin(Date.now()/200)*2;
+    // Body
+    ctx.fillStyle='#8B6914';
+    ctx.fillRect(sx+8,sy+14+bob,16,10);
+    // Head
+    ctx.fillStyle='#A07818';
+    ctx.fillRect(sx+10,sy+8+bob,12,8);
+    // Ears
+    ctx.fillStyle='#8B6914';
+    ctx.fillRect(sx+10,sy+5+bob,3,4);
+    ctx.fillRect(sx+19,sy+5+bob,3,4);
+    // Eyes
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx+12,sy+10+bob,2,2);
+    ctx.fillRect(sx+18,sy+10+bob,2,2);
+    // Nose
+    ctx.fillStyle='#5a3a08';
+    ctx.fillRect(sx+15,sy+13+bob,2,2);
+    // Tail (bushy!)
+    ctx.fillStyle='#A07818';
+    ctx.beginPath();
+    ctx.ellipse(sx+6, sy+10+bob, 5, 8, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle='#C89428';
+    ctx.beginPath();
+    ctx.ellipse(sx+6, sy+8+bob, 3, 5, -0.3, 0, Math.PI*2);
+    ctx.fill();
+    // Paws
+    ctx.fillStyle='#A07818';
+    ctx.fillRect(sx+10,sy+24+bob,4,3);
+    ctx.fillRect(sx+18,sy+24+bob,4,3);
+    // Exclamation mark
+    const bob2 = Math.sin(Date.now()/400)*3;
+    ctx.fillStyle='#ffff00';ctx.font='bold 16px monospace';ctx.textAlign='center';
+    ctx.fillText('!',sx+16,sy+bob2);
+    ctx.textAlign='left';
+}
+
 // ═══════════════════════════
 // DIALOGUE
 // ═══════════════════════════
@@ -1284,16 +1351,38 @@ function startDialogue(id) {
     visitedMembers.add(id);
 }
 
+function startSquirrelDialogue() {
+    state='dialogue';
+    dlg={active:true,id:'sq',phase:'greeting',text:SQUIRREL.greeting,chars:0,ct:0,mi:0};
+}
+
 function handleDlgInput(key) {
     if(!dlg.active) return;
     if(key==='Escape'){
         if(dlg.phase==='email'||dlg.phase==='legislation'||dlg.phase==='issues') {dlg.phase='menu';return;}
+        if(dlg.phase==='sqmenu'||dlg.phase==='sqresponse') {dlg.active=false;state='playing';return;}
         dlg.active=false;state='playing';return;
     }
-    if(dlg.phase==='greeting'||dlg.phase==='response'){
+    if(dlg.phase==='greeting'||dlg.phase==='response'||dlg.phase==='sqresponse'){
         if(key===' '||key==='Enter'){
             if(dlg.chars<dlg.text.length) dlg.chars=dlg.text.length;
-            else dlg.phase='menu';
+            else dlg.phase=(dlg.id==='sq'?'sqmenu':'menu');
+        }
+        return;
+    }
+    if(dlg.phase==='sqmenu'){
+        const topics = SQUIRREL.topics;
+        if(key==='ArrowUp'||key==='w') dlg.mi=Math.max(0,dlg.mi-1);
+        else if(key==='ArrowDown'||key==='s') dlg.mi=Math.min(topics.length-1,dlg.mi+1);
+        else if(key==='Enter'||key===' ') {
+            if(dlg.mi===topics.length-1){dlg.active=false;state='playing';return;}
+            if(dlg.mi===5){window.open('https://data.cityofnewyork.us/Environment/2018-Central-Park-Squirrel-Census-Squirrel-Data/vfnx-vebw','_blank');return;}
+            dlg.phase='sqresponse';dlg.text=SQUIRREL.responses[dlg.mi];dlg.chars=0;dlg.ct=0;
+        } else if(key>='1'&&key<='7'){
+            const i=parseInt(key)-1;
+            if(i===topics.length-1){dlg.active=false;state='playing';return;}
+            if(i===5){window.open('https://data.cityofnewyork.us/Environment/2018-Central-Park-Squirrel-Census-Squirrel-Data/vfnx-vebw','_blank');return;}
+            if(i<SQUIRREL.responses.length){dlg.phase='sqresponse';dlg.text=SQUIRREL.responses[i];dlg.chars=0;dlg.ct=0;}
         }
         return;
     }
@@ -1471,7 +1560,10 @@ function update() {
     }
     if(banner.timer>0) banner.timer--;
     nearNPC=null;
-    for(const[id,m]of Object.entries(MEMBERS)){
+    // Check squirrel first
+    const sqx=SQUIRREL.pos.x*TILE+TILE/2, sqy=SQUIRREL.pos.y*TILE+TILE/2;
+    if(Math.hypot(player.x-sqx,player.y-sqy)<TILE*2){nearNPC='sq';}
+    else for(const[id,m]of Object.entries(MEMBERS)){
         const nx=m.pos.x*TILE+TILE/2,ny=m.pos.y*TILE+TILE/2;
         if(Math.hypot(player.x-nx,player.y-ny)<TILE*2){nearNPC=parseInt(id);break;}
     }
@@ -1502,6 +1594,12 @@ function render() {
             drawSprite(sx,sy,ndir,0,m.color,parseInt(id));
             ctx.shadowBlur=0;
         }
+    }
+
+    // Draw squirrel in Central Park
+    const sqsx=SQUIRREL.pos.x*TILE-camera.x, sqsy=SQUIRREL.pos.y*TILE-camera.y;
+    if(sqsx>-TILE*2&&sqsx<W+TILE&&sqsy>-TILE*2&&sqsy<H+TILE){
+        drawSquirrel(sqsx,sqsy);
     }
 
     const psx=player.x-TILE/2-camera.x,psy=player.y-TILE/2-camera.y;
@@ -1568,7 +1666,56 @@ function renderMinimap() {
     if(Math.floor(Date.now()/400)%2){ctx.fillStyle='#ff0';ctx.fillRect(ppx-1,ppy-1,3,3);}
 }
 
+function renderSquirrelDialogue() {
+    const boxH = 220, boxY = H - boxH - 10;
+    const c = '#8B6914';
+    const textX = 50;
+    const textW = W - textX - 30;
+
+    // Box
+    ctx.fillStyle='rgba(8,20,8,0.95)';ctx.fillRect(16,boxY,W-32,boxH);
+    ctx.strokeStyle=c;ctx.lineWidth=3;ctx.strokeRect(16,boxY,W-32,boxH);ctx.lineWidth=1;
+
+    // Name plate
+    ctx.font='bold 13px monospace';
+    const nameStr = 'Central Park Squirrel  (Squirrel Census 2018)';
+    const npW = ctx.measureText(nameStr).width + 24;
+    ctx.fillStyle=c;
+    ctx.fillRect(textX-4,boxY-14,npW,28);ctx.strokeStyle='#ddd';ctx.strokeRect(textX-4,boxY-14,npW,28);
+    ctx.fillStyle='#fff';ctx.fillText(nameStr,textX+6,boxY+4);
+
+    // Tiny squirrel icon in dialogue
+    const iconX = 24, iconY = boxY + 24;
+    ctx.fillStyle='#8B6914';ctx.fillRect(iconX+2,iconY+8,12,8);
+    ctx.fillStyle='#A07818';ctx.fillRect(iconX+3,iconY+3,10,7);
+    ctx.fillStyle='#000';ctx.fillRect(iconX+5,iconY+5,2,2);ctx.fillRect(iconX+9,iconY+5,2,2);
+    ctx.fillStyle='#A07818';ctx.beginPath();ctx.ellipse(iconX,iconY+4,4,6,-0.3,0,Math.PI*2);ctx.fill();
+
+    if(dlg.phase==='greeting'||dlg.phase==='sqresponse') {
+        dlg.ct++; if(dlg.ct>=1){dlg.chars=Math.min(dlg.text.length,dlg.chars+2);dlg.ct=0;}
+        ctx.fillStyle='#eee';ctx.font='13px monospace';
+        wrapText(dlg.text.substring(0,dlg.chars),textX,boxY+36,textW,16);
+        if(dlg.chars>=dlg.text.length&&Math.floor(Date.now()/500)%2){
+            ctx.fillStyle='#aaa';ctx.font='12px monospace';ctx.textAlign='right';
+            ctx.fillText('SPACE \u25bc',W-40,boxY+boxH-14);ctx.textAlign='left';
+        }
+    }
+
+    if(dlg.phase==='sqmenu') {
+        ctx.fillStyle='#ccc';ctx.font='13px monospace';ctx.fillText('*twitches tail* What do you want to know?',textX,boxY+34);
+        SQUIRREL.topics.forEach((opt,i) => {
+            const oy = boxY + 54 + i * 22;
+            ctx.fillStyle = i===dlg.mi ? c : '#666';
+            ctx.font = i===dlg.mi ? 'bold 12px monospace' : '12px monospace';
+            ctx.fillText((i===dlg.mi?'\u25b6 ':'  ')+(i+1)+'. '+opt, textX, oy);
+        });
+        ctx.fillStyle='#555';ctx.font='10px monospace';
+        ctx.fillText('Source: NYC Open Data - dataset vfnx-vebw', textX, boxY+boxH-14);
+    }
+}
+
 function renderDialogue() {
+    if(dlg.id==='sq') { renderSquirrelDialogue(); return; }
     const m = MEMBERS[dlg.id]; if(!m) return;
     const boxH = 220, boxY = H - boxH - 10;
     const c = DISTRICT_COLORS[dlg.id]||'#888';
