@@ -1347,6 +1347,8 @@ document.addEventListener('keydown', e => {
     keys[e.key] = true;
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Tab','Backspace'].includes(e.key)) e.preventDefault();
     if(state==='title'&&(e.key==='Enter'||e.key===' ')){state='playing';return;}
+    if(state==='instructions'&&(e.key==='Escape'||e.key==='Enter'||e.key===' ')){state='playing';return;}
+    if(state==='playing'&&e.key==='Escape'){state='instructions';return;}
     if(state==='playing'&&(e.key===' '||e.key==='Enter')&&nearNPC){
         if(nearNPC==='sq') startSquirrelDialogue();
         else startDialogue(nearNPC);
@@ -1675,6 +1677,7 @@ function update() {
 function render() {
     ctx.clearRect(0,0,W,H);
     if(state==='title'){renderTitle();return;}
+    if(state==='instructions'){renderInstructions();return;}
 
     ctx.drawImage(mapCvs, camera.x, camera.y, W, H, 0, 0, W, H);
 
@@ -2112,6 +2115,75 @@ function renderDialogue() {
         ctx.fillStyle='#666';ctx.font='11px monospace';
         ctx.fillText('\u2191\u2193 Scroll  |  ENTER: Open  |  SPACE: Back', textX, boxY+boxH-12);
     }
+}
+
+// ═══════════════════════════
+// INSTRUCTIONS SCREEN
+// ═══════════════════════════
+function renderInstructions() {
+    ctx.fillStyle='rgba(0,0,0,0.85)';ctx.fillRect(0,0,W,H);
+
+    const cx = W/2, startY = 60;
+    ctx.fillStyle='#ffd700';ctx.font='bold 28px monospace';ctx.textAlign='center';
+    ctx.fillText('INSTRUCTIONS', cx, startY);
+
+    ctx.font='14px monospace';
+    const sections = [
+        ['MOVEMENT', '#3498db', [
+            ['Arrow Keys / WASD', 'Walk around the map'],
+            ['/', 'Search by address (teleport to district)'],
+        ]],
+        ['INTERACTION', '#2ecc71', [
+            ['SPACE / ENTER', 'Talk to a council member or the squirrel'],
+            ['ESC', 'Exit conversation / Open this screen'],
+        ]],
+        ['IN DIALOGUE', '#e67e22', [
+            ['1-6', 'Select a menu option directly'],
+            ['Arrow Keys', 'Navigate menu / scroll bills & social'],
+            ['ENTER', 'Open a bill on Legistar / open social link'],
+            ['TAB', 'Switch between Primary / Co-sponsored bills'],
+            ['SPACE', 'Advance text / go back to menu'],
+            ['ESC', 'Back to menu / exit dialogue'],
+        ]],
+        ['EMAIL COMPOSER', '#c0547a', [
+            ['TAB / Arrow Keys', 'Switch between fields'],
+            ['ENTER', 'New line in message / send on button'],
+            ['ESC', 'Back to menu'],
+        ]],
+        ['GOAL', '#ffd700', [
+            ['', 'Walk Manhattan, meet all 10 council members,'],
+            ['', 'learn about their districts and legislation,'],
+            ['', 'and talk to the squirrel in Central Park!'],
+        ]],
+    ];
+
+    let y = startY + 30;
+    for (const [title, color, items] of sections) {
+        ctx.fillStyle = color; ctx.font = 'bold 13px monospace';
+        ctx.fillText(title, cx, y);
+        y += 6;
+        ctx.font = '12px monospace';
+        for (const [key, desc] of items) {
+            y += 18;
+            if (key) {
+                ctx.fillStyle = '#fff';
+                ctx.fillText(key, cx - 20, y);
+                ctx.fillStyle = '#888';
+                ctx.fillText(desc, cx - 20, y + 15);
+                y += 12;
+            } else {
+                ctx.fillStyle = '#ccc';
+                ctx.fillText(desc, cx, y);
+            }
+        }
+        y += 16;
+    }
+
+    if (Math.floor(Date.now()/600)%2) {
+        ctx.fillStyle='#fff';ctx.font='bold 16px monospace';
+        ctx.fillText('Press ESC, ENTER, or SPACE to return', cx, H - 40);
+    }
+    ctx.textAlign='left';
 }
 
 // ═══════════════════════════
