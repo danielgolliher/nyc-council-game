@@ -1950,7 +1950,7 @@ function render() {
 }
 
 function renderMinimap() {
-    const mmW=55,mmH=150,mx=W-mmW-14,my=H-mmH-14;
+    const mmS=120,mmW=mmS,mmH=mmS,mx=W-mmW-14,my=H-mmH-14;
     ctx.fillStyle='rgba(0,0,0,0.75)';ctx.fillRect(mx-3,my-3,mmW+6,mmH+6);
     ctx.strokeStyle='#555';ctx.strokeRect(mx-3,my-3,mmW+6,mmH+6);
     const sx=mmW/MAP_W,sy=mmH/MAP_H;
