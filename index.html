@@ -21,6 +21,21 @@ canvas {
     border: 4px solid #333;
 }
 #game-wrap { position: relative; }
+#music-btn {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 10;
+    padding: 6px 12px;
+    font: bold 12px 'Courier New', monospace;
+    background: rgba(10,10,30,0.85);
+    color: #888;
+    border: 2px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#music-btn:hover { border-color: #888; color: #fff; }
+#music-btn.on { color: #ffd700; border-color: #ffd700; }
 #search-box {
     display: none;
     position: absolute;
@@ -74,6 +89,7 @@ canvas {
 <body>
 <div id="game-wrap">
 <canvas id="game" width="800" height="600"></canvas>
+<button id="music-btn" title="Toggle Music">&#9835; OFF</button>
 <div id="search-box">
     <input type="text" id="addr-input" placeholder="Enter a NYC address... (/ to open)" autocomplete="off" />
     <div id="addr-results"></div>
@@ -2667,6 +2683,115 @@ document.addEventListener('keydown', (e) => {
         openSearch();
     }
 }, true);
+
+// ═══════════════════════════
+// 8-BIT MUSIC ENGINE
+// ═══════════════════════════
+const musicBtn = document.getElementById('music-btn');
+let musicPlaying = false;
+let audioCtx = null;
+let musicInterval = null;
+
+// Pokemon-style overworld melody (note, octave, duration in 16ths)
+// Two channels: melody (square wave) and bass (triangle wave)
+const MELODY = [
+    // Phrase 1 - cheerful walking theme
+    ['E',5,2],['G',5,2],['A',5,2],['B',5,2],['A',5,2],['G',5,2],['E',5,4],
+    ['D',5,2],['E',5,2],['G',5,2],['A',5,4],['G',5,2],['E',5,2],
+    ['D',5,2],['C',5,2],['D',5,2],['E',5,4],['R',0,2],
+    // Phrase 2 - adventurous
+    ['E',5,2],['G',5,2],['A',5,2],['B',5,2],['C',6,4],['B',5,2],['A',5,2],
+    ['G',5,2],['A',5,2],['B',5,4],['A',5,2],['G',5,2],
+    ['E',5,2],['D',5,2],['C',5,2],['E',5,4],['R',0,2],
+    // Phrase 3 - uplifting
+    ['C',5,2],['E',5,2],['G',5,4],['A',5,2],['G',5,2],['E',5,2],['C',5,2],
+    ['D',5,2],['F',5,2],['A',5,4],['G',5,2],['F',5,2],
+    ['E',5,2],['G',5,2],['B',5,2],['C',6,4],['R',0,4],
+    // Phrase 4 - resolution
+    ['C',6,2],['B',5,2],['A',5,2],['G',5,2],['A',5,4],['E',5,4],
+    ['D',5,2],['E',5,2],['G',5,2],['A',5,2],['G',5,2],['E',5,2],
+    ['C',5,4],['R',0,4],['R',0,4],
+];
+
+const BASS = [
+    ['C',3,4],['C',3,4],['A',2,4],['A',2,4],['F',2,4],['F',2,4],['G',2,4],['G',2,4],
+    ['C',3,4],['C',3,4],['A',2,4],['A',2,4],['D',3,4],['D',3,4],['G',2,4],['G',2,4],
+    ['C',3,4],['C',3,4],['A',2,4],['A',2,4],['F',2,4],['F',2,4],['G',2,4],['G',2,4],
+    ['A',2,4],['A',2,4],['E',2,4],['E',2,4],['F',2,4],['F',2,4],['G',2,4],['G',2,4],
+    ['C',3,4],['E',3,4],['G',3,4],['A',3,4],['D',3,4],['F',3,4],['A',3,4],['G',3,4],
+    ['C',3,4],['E',3,4],['G',3,4],['C',4,4],['A',2,4],['E',3,4],['G',3,4],['R',0,4],
+    ['A',2,4],['A',2,4],['A',2,4],['A',2,4],['F',2,4],['G',2,4],
+    ['C',3,8],['R',0,4],['R',0,4],
+];
+
+const NOTE_FREQ = {C:261.63,D:293.66,E:329.63,F:349.23,G:392.00,A:440.00,B:493.88};
+
+function getFreq(note, octave) {
+    if(note === 'R') return 0;
+    return NOTE_FREQ[note] * Math.pow(2, octave - 4);
+}
+
+function startMusic() {
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+
+    const BPM = 140;
+    const sixteenth = 60 / BPM / 4;
+    let melIdx = 0, melTime = 0;
+    let basIdx = 0, basTime = 0;
+
+    function playNote(freq, duration, type, vol) {
+        if(freq === 0) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration * 0.9);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function tick() {
+        if(!musicPlaying) return;
+        // Melody
+        if(melTime <= 0 && MELODY.length > 0) {
+            const [note, oct, dur] = MELODY[melIdx % MELODY.length];
+            const freq = getFreq(note, oct);
+            playNote(freq, dur * sixteenth * 0.9, 'square', 0.08);
+            melTime = dur;
+            melIdx++;
+        }
+        melTime--;
+
+        // Bass
+        if(basTime <= 0 && BASS.length > 0) {
+            const [note, oct, dur] = BASS[basIdx % BASS.length];
+            const freq = getFreq(note, oct);
+            playNote(freq, dur * sixteenth * 0.9, 'triangle', 0.12);
+            basTime = dur;
+            basIdx++;
+        }
+        basTime--;
+    }
+
+    musicInterval = setInterval(tick, sixteenth * 1000);
+    tick();
+}
+
+function stopMusic() {
+    if(musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+}
+
+musicBtn.addEventListener('click', () => {
+    musicPlaying = !musicPlaying;
+    musicBtn.textContent = musicPlaying ? '\u266B ON' : '\u266B OFF';
+    musicBtn.classList.toggle('on', musicPlaying);
+    if(musicPlaying) startMusic();
+    else stopMusic();
+});
 
 // ═══════════════════════════
 // GAME LOOP
