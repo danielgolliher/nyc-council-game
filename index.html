@@ -104,6 +104,8 @@ const W = 800, H = 600;
 const TILE = 32;
 const MAP_W = 224, MAP_H = 184;
 const SPEED = 3;
+let zoom = 1.0;
+const ZOOM_MIN = 0.25, ZOOM_MAX = 2.0, ZOOM_STEP = 0.1;
 
 // ═══════════════════════════
 // COLORS
@@ -340,7 +342,7 @@ const BRIDGE_NAMES = [
     {name:"Williamsburg Bridge", tiles:[[114,89],[115,89],[116,89]]},
     {name:"Brooklyn Bridge", tiles:[[105,92],[105,93]]},
     {name:"Manhattan Bridge", tiles:[[107,92],[108,91],[108,92],[108,93]]},
-    {name:"Verrazano-Narrows Bridge", tiles:[[85,136],[86,136],[87,136],[88,136],[89,136],[90,135],[91,134]]},
+    {name:"Verrazano-Narrows Bridge", tiles:[[85,136],[86,136],[87,134],[87,136],[88,136],[89,136],[90,135],[91,134]]},
 ];
 function getBridgeName(tx,ty) {
     for(const b of BRIDGE_NAMES)
@@ -1464,9 +1466,9 @@ const REAL_MAP=[
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,0,0,0,0,0,0,0,0,0,0,47,47,47,47,47,47,50,50,47,50,50,38,38,38,38,38,43,43,43,43,43,43,43,44,44,44,44,44,44,44,44,44,44,44,44,44,44,45,45,45,45,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,0,0,0,0,0,0,0,42,42,42,42,42,0,0,0,0,0,0,0,0,0,0,0,0,0,32,32,32,32,31,31,31,0,0,0,0,0,31,0,0,31,31,31,31,31,0,0,0,0,0,0,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,0,0,0,0,0,0,0,0,0,47,47,47,47,47,50,50,50,50,50,50,50,47,38,38,38,38,43,43,43,43,43,43,43,44,44,44,44,44,44,44,48,48,48,48,48,48,45,45,45,46,46,46,46,46,46,46,46,46,46,46,46,46,0,46,46,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,42,32,32,32,32,32,31,31,0,0,0,0,0,0,0,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,49,0,0,0,0,0,0,0,0,47,47,47,47,47,50,50,50,50,50,50,47,47,38,38,38,43,43,43,43,43,43,43,43,43,44,44,44,44,44,44,48,48,48,48,48,48,46,45,46,46,46,46,46,46,46,46,46,46,0,46,46,46,46,0,46,46,46,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,42,0,0,0,0,0,0,0,32,32,32,31,0,0,0,0,0,0,31,31,31,31,31,31,31,0,0,0,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,50,50,50,49,49,49,49,50,50,49,49,49,49,49,49,49,49,49,49,49,49,49,49,0,0,0,0,0,0,0,0,53,47,47,50,50,50,50,50,50,50,50,50,50,47,38,38,43,43,43,43,43,43,43,43,44,44,44,44,44,44,44,48,48,48,48,48,48,48,46,46,46,46,46,46,46,46,46,46,46,0,46,46,46,46,46,0,46,46,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,42,0,42,0,0,42,42,42,0,0,0,0,0,0,32,32,31,0,0,0,0,0,0,0,0,31,31,31,0,0,0,0,0,0,31,31,31,31,31,0,0,0,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,50,50,50,49,49,49,49,50,50,49,49,49,49,49,49,49,49,49,49,49,49,49,49,0,0,0,0,0,0,0,53,53,47,47,50,50,50,50,50,50,50,50,50,50,47,38,38,43,43,43,43,43,43,43,43,44,44,44,44,44,44,44,48,48,48,48,48,48,48,46,46,46,46,46,46,46,46,46,46,46,0,46,46,46,46,46,0,46,46,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,42,0,42,0,0,42,42,42,0,0,0,0,0,0,32,32,31,0,0,0,0,0,0,0,0,31,31,31,0,0,0,0,0,0,31,31,31,31,31,0,0,0,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,49,49,49,49,49,49,0,0,0,0,0,0,53,0,0,50,50,50,50,50,50,50,50,50,50,50,47,38,38,38,38,43,43,43,43,43,43,43,44,44,44,44,44,44,48,48,48,48,48,48,48,48,46,46,46,46,46,46,46,46,46,0,46,46,46,46,46,46,0,46,46,46,0,0,0,0,0,0,0,0,42,0,0,0,0,0,0,42,0,0,0,42,42,42,0,32,32,0,32,0,0,32,32,0,0,0,0,0,31,31,31,0,0,0,0,0,0,31,31,0,0,31,31,31,31,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,49,49,53,53,53,53,53,0,0,0,0,50,50,50,50,50,50,50,50,50,47,38,38,38,38,43,43,43,43,43,43,43,43,44,44,44,44,44,44,48,48,48,48,48,48,48,48,46,46,46,46,46,46,46,46,46,46,0,46,46,0,0,46,0,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,42,42,42,0,0,32,32,32,32,0,32,32,32,0,0,0,0,0,31,31,0,0,0,0,0,0,31,31,31,0,0,31,31,31,31,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,49,49,53,53,53,53,53,53,0,0,0,50,50,50,50,50,50,50,50,50,47,38,38,38,38,43,43,43,43,43,43,43,43,44,44,44,44,44,44,48,48,48,48,48,48,48,48,46,46,46,46,46,46,46,46,46,46,0,46,46,0,0,46,0,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,42,42,42,0,0,32,32,32,32,0,32,32,32,0,0,0,0,0,31,31,0,0,0,0,0,0,31,31,31,0,0,31,31,31,31,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,49,49,49,49,49,49,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,47,47,47,38,38,43,43,43,43,43,43,43,43,43,44,44,44,44,44,48,48,48,48,48,48,48,48,48,46,46,46,46,0,46,46,46,46,46,46,0,46,0,0,0,0,0,0,0,0,46,46,46,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,32,0,31,0,0,0,0,0,0,0,0,0,0,0,0,31,31,31,0,0,31,31,31,31,31,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,51,51,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,47,47,47,47,43,43,43,43,43,43,43,43,43,43,44,44,44,44,44,48,48,48,48,48,48,48,48,46,46,46,46,46,46,0,46,46,0,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,0,0,0,0,0,0,0,0,42,42,42,0,0,0,0,0,0,0,0,0,0,0,0,0,32,32,0,31,31,0,0,0,0,0,0,0,0,31,0,31,31,31,0,0,0,31,31,31,31,31,31,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,50,50,50,50,50,50,50,50,50,50,50,51,51,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,50,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,47,47,47,47,43,43,43,43,43,43,43,43,44,44,44,44,44,48,48,48,48,48,48,48,48,46,46,46,46,46,46,46,0,0,46,46,0,46,46,46,46,46,46,46,46,46,46,46,46,46,0,0,0,0,0,0,0,0,42,42,42,42,42,0,0,0,0,0,0,0,0,0,32,32,32,32,0,0,31,0,0,0,0,31,31,31,31,0,31,31,0,0,31,0,0,31,31,31,31,31,31,31,31,31,31,31,31,31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -1629,6 +1631,18 @@ document.addEventListener('keydown', e => {
     if(state==='dialogue') handleDlgInput(e.key);
 });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Zoom controls: mouse wheel, +/- keys
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)));
+}, {passive: false});
+document.addEventListener('keydown', e => {
+    if(searchOpen) return;
+    if(e.key === '=' || e.key === '+') { zoom = Math.min(ZOOM_MAX, zoom + ZOOM_STEP); e.preventDefault(); }
+    if(e.key === '-' || e.key === '_') { zoom = Math.max(ZOOM_MIN, zoom - ZOOM_STEP); e.preventDefault(); }
+    if(e.key === '0') { zoom = 1.0; e.preventDefault(); }
+}, true);
 
 // ═══════════════════════════
 // SPRITES
@@ -1971,10 +1985,11 @@ function update() {
             if(Math.hypot(player.x-nx,player.y-ny)<TILE*2){nearNPC=parseInt(id);break;}
         }
     }
-    camera.x+=((player.x-W/2)-camera.x)*0.1;
-    camera.y+=((player.y-H/2)-camera.y)*0.1;
-    camera.x=Math.max(0,Math.min(MAP_W*TILE-W,camera.x));
-    camera.y=Math.max(0,Math.min(MAP_H*TILE-H,camera.y));
+    const vw=W/zoom, vh=H/zoom; // viewport size in world pixels
+    camera.x+=((player.x-vw/2)-camera.x)*0.1;
+    camera.y+=((player.y-vh/2)-camera.y)*0.1;
+    camera.x=Math.max(0,Math.min(MAP_W*TILE-vw,camera.x));
+    camera.y=Math.max(0,Math.min(MAP_H*TILE-vh,camera.y));
     if(visitedMembers.size===51&&!completionShown){completionShown=true;completionTimer=360;}
     if(completionTimer>0) completionTimer--;
 }
@@ -1987,11 +2002,20 @@ function render() {
     if(state==='title'){renderTitle();return;}
     if(state==='instructions'){renderInstructions();return;}
 
-    ctx.drawImage(mapCvs, camera.x, camera.y, W, H, 0, 0, W, H);
+    // World rendering (zoomed)
+    const vw=W/zoom, vh=H/zoom;
+    ctx.save();
+    ctx.scale(zoom,zoom);
+    ctx.translate(-camera.x,-camera.y);
 
+    // Map
+    ctx.drawImage(mapCvs, 0, 0);
+
+    // NPCs (world space - transform handles camera offset)
     for(const[id,m]of Object.entries(MEMBERS)){
-        const sx=m.pos.x*TILE-camera.x,sy=m.pos.y*TILE-camera.y;
-        if(sx>-TILE*2&&sx<W+TILE&&sy>-TILE*2&&sy<H+TILE){
+        const sx=m.pos.x*TILE,sy=m.pos.y*TILE;
+        const scx=sx-camera.x,scy=sy-camera.y;
+        if(scx>-TILE*2/zoom&&scx<vw+TILE&&scy>-TILE*2/zoom&&scy<vh+TILE){
             const npcPx=m.pos.x*TILE+TILE/2,npcPy=m.pos.y*TILE+TILE/2;
             const ddx=player.x-npcPx,ddy=player.y-npcPy;
             const ndir=Math.abs(ddx)>Math.abs(ddy)?(ddx>0?2:1):(ddy>0?0:3);
@@ -2001,34 +2025,33 @@ function render() {
         }
     }
 
-    // Draw ferry terminals
+    // Ferry terminals (world space)
     for(const f of FERRIES){
-        const fx=f.pos.x*TILE-camera.x, fy=f.pos.y*TILE-camera.y;
-        if(fx>-TILE*2&&fx<W+TILE&&fy>-TILE*2&&fy<H+TILE){
-            // Dock
+        const fx=f.pos.x*TILE, fy=f.pos.y*TILE;
+        const fcx=fx-camera.x,fcy=fy-camera.y;
+        if(fcx>-TILE*2/zoom&&fcx<vw+TILE&&fcy>-TILE*2/zoom&&fcy<vh+TILE){
             ctx.fillStyle='#8B7355';ctx.fillRect(fx+4,fy+20,24,10);
-            // Water ripple
             ctx.fillStyle='#2a6a9c';ctx.fillRect(fx+2,fy+28,28,4);
-            // Ferry boat
             ctx.fillStyle='#fff';ctx.fillRect(fx+8,fy+8,16,14);
             ctx.fillStyle='#2980b9';ctx.fillRect(fx+10,fy+10,12,8);
-            // Flag
             ctx.fillStyle='#e74c3c';ctx.fillRect(fx+14,fy+2,2,8);ctx.fillRect(fx+16,fy+2,6,4);
-            // Label
             const bob=Math.sin(Date.now()/400)*2;
             ctx.fillStyle='#3498db';ctx.font='bold 10px monospace';ctx.textAlign='center';
             ctx.fillText('FERRY',fx+16,fy-2+bob);ctx.textAlign='left';
         }
     }
 
-    // Draw squirrel in Central Park
-    const sqsx=SQUIRREL.pos.x*TILE-camera.x, sqsy=SQUIRREL.pos.y*TILE-camera.y;
-    if(sqsx>-TILE*2&&sqsx<W+TILE&&sqsy>-TILE*2&&sqsy<H+TILE){
+    // Squirrel (world space)
+    const sqsx=SQUIRREL.pos.x*TILE, sqsy=SQUIRREL.pos.y*TILE;
+    if(sqsx-camera.x>-TILE*2&&sqsx-camera.x<vw+TILE&&sqsy-camera.y>-TILE*2&&sqsy-camera.y<vh+TILE){
         drawSquirrel(sqsx,sqsy);
     }
 
-    const psx=player.x-TILE/2-camera.x,psy=player.y-TILE/2-camera.y;
+    // Player (world space)
+    const psx=player.x-TILE/2,psy=player.y-TILE/2;
     drawSprite(psx,psy,player.dir,player.frame,{shirt:'#3366cc',hair:'#2c1810',skin:'#d4a574',pants:'#2c3e50'},null);
+
+    ctx.restore(); // End world transform — everything below is screen-space HUD
 
     if(nearNPC&&state==='playing'){
         ctx.fillStyle='rgba(0,0,0,0.75)';
@@ -2061,8 +2084,14 @@ function render() {
     ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(8,8,220,48);
     ctx.strokeStyle=DISTRICT_COLORS[currentDistrict]||'#555';ctx.strokeRect(8,8,220,48);
     ctx.font='12px monospace';
-    if(currentDistrict===11){ctx.fillStyle='#fff';ctx.fillText('Central Park (District 6)',16,26);ctx.fillStyle='#8e44ad';ctx.fillText('CM Gale Brewer [D]',16,44);}
+    if(currentDistrict===52){ctx.fillStyle='#fff';ctx.fillText('Park',16,26);ctx.fillStyle='#4a9e38';ctx.fillText('Green space',16,44);}
     else if(MEMBERS[currentDistrict]){ctx.fillStyle='#fff';ctx.fillText(MEMBERS[currentDistrict].district,16,26);ctx.fillStyle=DISTRICT_COLORS[currentDistrict];ctx.fillText(MEMBERS[currentDistrict].name.substring(0,28),16,44);}
+
+    // Zoom indicator
+    if(zoom !== 1.0){
+        ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(8,62,80,20);
+        ctx.fillStyle='#aaa';ctx.font='11px monospace';ctx.fillText(`Zoom: ${Math.round(zoom*100)}%`,14,77);
+    }
 
     // Progress
     ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(W-290,8,282,58);ctx.strokeStyle='#555';ctx.strokeRect(W-290,8,282,58);
@@ -2601,7 +2630,7 @@ function renderTitle() {
     if(Math.floor(Date.now()/600)%2){ctx.fillStyle='#fff';ctx.font='bold 20px monospace';ctx.fillText('Press ENTER to start',W/2,380);}
     ctx.fillStyle='#555';ctx.font='12px monospace';
     ctx.fillText('Arrow Keys / WASD to move  |  SPACE to interact',W/2,440);
-    ctx.fillText('/  to search by address  |  1-6 for dialogue options',W/2,462);
+    ctx.fillText('/  to search by address  |  +/- or scroll to zoom',W/2,462);
     ctx.textAlign='left';
 }
 
