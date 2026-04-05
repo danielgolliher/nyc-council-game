@@ -36,6 +36,34 @@ canvas {
 }
 #music-btn:hover { border-color: #888; color: #fff; }
 #music-btn.on { color: #ffd700; border-color: #ffd700; }
+#zoom-controls {
+    position: absolute;
+    bottom: 12px;
+    left: 110px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+#zoom-controls button {
+    width: 28px; height: 28px;
+    font: bold 14px 'Courier New', monospace;
+    background: rgba(10,10,30,0.85);
+    color: #aaa;
+    border: 2px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#zoom-controls button:hover { border-color: #888; color: #fff; }
+#zoom-level {
+    font: 11px 'Courier New', monospace;
+    color: #888;
+    min-width: 38px;
+    text-align: center;
+}
 #search-box {
     display: none;
     position: absolute;
@@ -90,6 +118,12 @@ canvas {
 <div id="game-wrap">
 <canvas id="game" width="800" height="600"></canvas>
 <button id="music-btn" title="Toggle Music">&#9835; OFF</button>
+<div id="zoom-controls">
+    <button id="zoom-out" title="Zoom Out (-)">-</button>
+    <span id="zoom-level">100%</span>
+    <button id="zoom-in" title="Zoom In (+)">+</button>
+    <button id="zoom-reset" title="Reset (0)">R</button>
+</div>
 <div id="search-box">
     <input type="text" id="addr-input" placeholder="Enter a NYC address... (/ to open)" autocomplete="off" />
     <div id="addr-results"></div>
@@ -1632,16 +1666,24 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Zoom controls: mouse wheel, +/- keys
+// Zoom controls
+const zoomLevelEl = document.getElementById('zoom-level');
+function updateZoom(newZoom) {
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(newZoom * 10) / 10));
+    zoomLevelEl.textContent = Math.round(zoom * 100) + '%';
+}
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)));
+    updateZoom(zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
 }, {passive: false});
+document.getElementById('zoom-in').addEventListener('click', () => updateZoom(zoom + ZOOM_STEP));
+document.getElementById('zoom-out').addEventListener('click', () => updateZoom(zoom - ZOOM_STEP));
+document.getElementById('zoom-reset').addEventListener('click', () => updateZoom(1.0));
 document.addEventListener('keydown', e => {
-    if(searchOpen) return;
-    if(e.key === '=' || e.key === '+') { zoom = Math.min(ZOOM_MAX, zoom + ZOOM_STEP); e.preventDefault(); }
-    if(e.key === '-' || e.key === '_') { zoom = Math.max(ZOOM_MIN, zoom - ZOOM_STEP); e.preventDefault(); }
-    if(e.key === '0') { zoom = 1.0; e.preventDefault(); }
+    if(searchOpen || state === 'dialogue') return;
+    if(e.key === '=' || e.key === '+') { updateZoom(zoom + ZOOM_STEP); e.preventDefault(); }
+    if(e.key === '-' || e.key === '_') { updateZoom(zoom - ZOOM_STEP); e.preventDefault(); }
+    if(e.key === '0') { updateZoom(1.0); e.preventDefault(); }
 }, true);
 
 // ═══════════════════════════
@@ -2008,8 +2050,10 @@ function render() {
     ctx.scale(zoom,zoom);
     ctx.translate(-camera.x,-camera.y);
 
-    // Map
-    ctx.drawImage(mapCvs, 0, 0);
+    // Map (draw only visible portion for performance)
+    const sx=Math.max(0,Math.floor(camera.x)),sy=Math.max(0,Math.floor(camera.y));
+    const sw=Math.min(mapCvs.width-sx,Math.ceil(vw)+TILE),sh=Math.min(mapCvs.height-sy,Math.ceil(vh)+TILE);
+    ctx.drawImage(mapCvs, sx, sy, sw, sh, sx, sy, sw, sh);
 
     // NPCs (world space - transform handles camera offset)
     for(const[id,m]of Object.entries(MEMBERS)){
@@ -2086,12 +2130,6 @@ function render() {
     ctx.font='12px monospace';
     if(currentDistrict===52){ctx.fillStyle='#fff';ctx.fillText('Park',16,26);ctx.fillStyle='#4a9e38';ctx.fillText('Green space',16,44);}
     else if(MEMBERS[currentDistrict]){ctx.fillStyle='#fff';ctx.fillText(MEMBERS[currentDistrict].district,16,26);ctx.fillStyle=DISTRICT_COLORS[currentDistrict];ctx.fillText(MEMBERS[currentDistrict].name.substring(0,28),16,44);}
-
-    // Zoom indicator
-    if(zoom !== 1.0){
-        ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(8,62,80,20);
-        ctx.fillStyle='#aaa';ctx.font='11px monospace';ctx.fillText(`Zoom: ${Math.round(zoom*100)}%`,14,77);
-    }
 
     // Progress
     ctx.fillStyle='rgba(0,0,0,0.65)';ctx.fillRect(W-290,8,282,58);ctx.strokeStyle='#555';ctx.strokeRect(W-290,8,282,58);
