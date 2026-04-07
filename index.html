@@ -1449,16 +1449,27 @@ const COLEGIS_EXT = {
     49: [["0215", "Caregiver workplace accommodations", "C"], ["0220", "Enslaved African burial sites", "C"], ["0222", "Office of the waterfront", "C"], ["0225", "QR codes on street signs", "C"]],
     50: [["0067", "Fentanyl test strip outreach", "C"], ["0150", "Branded material spending reports", "C"], ["0151", "Basement CO detectors", "C"], ["0153", "Speed reducer assessment", "C"]],
     51: [["0314", "Nonpartisan ranked choice elections", "C"], ["0319", "Debate requirement for public funds", "C"], ["0320", "Staten Island flag codification", "C"], ["0322", "Council community board appointments", "C"], ["0323", "Organ donor paid leave", "C"]]
-
 };
 // Merge extended co-sponsored data into COLEGIS
 for(const [k,v] of Object.entries(COLEGIS_EXT)) COLEGIS[k]=v;
 
+// Photo display element (HTML overlay for cross-origin images)
+const photoOverlay = document.createElement('img');
+photoOverlay.id = 'photo-overlay';
+photoOverlay.style.cssText = 'position:absolute;display:none;z-index:5;border:3px solid #888;pointer-events:none;object-fit:cover;';
+document.getElementById('game-wrap').appendChild(photoOverlay);
+
 (function loadPhotos() {
     for (const [id, url] of Object.entries(PHOTO_URLS)) {
-        // Load without crossOrigin first (works for display, just taints canvas)
         const img = new Image();
+        img.crossOrigin = 'anonymous';
         img.onload = () => { portraits[id] = img; };
+        img.onerror = () => {
+            // CORS failed - load without crossOrigin for HTML display
+            const img2 = new Image();
+            img2.onload = () => { portraits[id] = img2; portraits[id]._htmlOnly = true; };
+            img2.src = url + (url.includes('?') ? '&' : '?') + '_cb=1';
+        };
         img.src = url;
     }
 })();
@@ -2062,12 +2073,22 @@ function drawPortrait(id, dx, dy, size) {
     ctx.lineWidth = 1;
     ctx.strokeRect(dx-3, dy-3, size+6, size+6);
 
-    if (photo) {
-        // Draw to tiny canvas then scale up for pixel effect
-        pixCtx.clearRect(0,0,64,64);
-        // Draw photo directly to main canvas (slight pixelation from scaling)
-        ctx.drawImage(photo, dx, dy, size, size);
-    } else {
+    if (photo && !photo._htmlOnly) {
+        try { ctx.drawImage(photo, dx, dy, size, size); }
+        catch(e) { photo._htmlOnly = true; }
+    }
+    if (photo && photo._htmlOnly) {
+        // Use HTML img overlay for cross-origin images that can't be drawn to canvas
+        const rect = canvas.getBoundingClientRect();
+        const sx = rect.width/W, sy = rect.height/H;
+        photoOverlay.src = photo.src;
+        photoOverlay.style.display = 'block';
+        photoOverlay.style.left = (rect.left - canvas.parentElement.getBoundingClientRect().left + dx*sx) + 'px';
+        photoOverlay.style.top = (rect.top - canvas.parentElement.getBoundingClientRect().top + dy*sy) + 'px';
+        photoOverlay.style.width = (size*sx) + 'px';
+        photoOverlay.style.height = (size*sy) + 'px';
+        photoOverlay.style.borderColor = c;
+    } else if (!photo) {
         // Placeholder
         ctx.fillStyle = '#222';
         ctx.fillRect(dx, dy, size, size);
@@ -2252,6 +2273,7 @@ function render() {
 
     renderMinimap();
     if(state==='dialogue'&&dlg.active) renderDialogue();
+    else photoOverlay.style.display='none';
 
     if(completionTimer>0){
         let a=1;if(completionTimer>330)a=(360-completionTimer)/30;else if(completionTimer<30)a=completionTimer/30;
