@@ -1438,15 +1438,9 @@ for(const [k,v] of Object.entries(COLEGIS_EXT)) COLEGIS[k]=v;
 
 (function loadPhotos() {
     for (const [id, url] of Object.entries(PHOTO_URLS)) {
+        // Load without crossOrigin first (works for display, just taints canvas)
         const img = new Image();
-        img.crossOrigin = 'anonymous';
         img.onload = () => { portraits[id] = img; };
-        img.onerror = () => {
-            // Retry without CORS if blocked
-            const img2 = new Image();
-            img2.onload = () => { portraits[id] = img2; };
-            img2.src = url;
-        };
         img.src = url;
     }
 })();
@@ -2047,11 +2041,8 @@ function drawPortrait(id, dx, dy, size) {
     if (photo) {
         // Draw to tiny canvas then scale up for pixel effect
         pixCtx.clearRect(0,0,64,64);
-        pixCtx.drawImage(photo, 0, 0, 64, 64);
-        const prev = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(pixCvs, dx, dy, size, size);
-        ctx.imageSmoothingEnabled = prev;
+        // Draw photo directly to main canvas (slight pixelation from scaling)
+        ctx.drawImage(photo, dx, dy, size, size);
     } else {
         // Placeholder
         ctx.fillStyle = '#222';
