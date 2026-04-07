@@ -191,7 +191,7 @@ const MEMBERS = {
         title:"Council Member",
         color:{shirt:'#d4a017',hair:'#3d2b1f',skin:'#e8c39e',pants:'#34495e'},
         pos:{x:109,y:82},
-        greeting:"Hey there! Harvey Epstein, District 2. I cover the East Village all the way up to Murray Hill. Formerly in the State Assembly - now bringing that energy to the Council.",
+        greeting:"Hey there! Harvey Epstein, District 2 (no, not *that* one). I cover the East Village all the way up to Murray Hill. Formerly in the State Assembly - now bringing that energy to the Council.",
         about:"Neighborhoods: Greenwich Village, Lower East Side, East Village, Midtown South-Flatiron-Union Square, Gramercy, Murray Hill-Kips Bay.",
         landmarks:"Union Square - one of NYC's great public spaces. NYU's campus throughout the Village. The Flatiron Building. Gramercy Park - Manhattan's only private park. Bellevue Hospital - the nation's oldest public hospital.",
         issues:"Tenant protection is critical - we're losing affordable units fast. Worker protections. Preserving daycare centers being squeezed out by rising rents. Promoting diversity in school admissions.",
@@ -1698,8 +1698,8 @@ function hash(x,y){return((x*374761+y*668265+x*y*13)%1000)/1000;}
                 mctx.fillStyle='#a08860';mctx.fillRect(px+2,py+4,TILE-4,4);mctx.fillRect(px+2,py+14,TILE-4,4);mctx.fillRect(px+2,py+24,TILE-4,4);
                 continue;
             }
-            // Gray out non-Manhattan districts (11-51 except parks/bridges/ferries)
-            if(d >= 11 && d <= 51) {
+            // Gray out non-Manhattan districts (11-51 except D34 and parks/bridges/ferries)
+            if(d >= 11 && d <= 51 && d !== 34) {
                 mctx.fillStyle = '#2a2a2a'; mctx.fillRect(px,py,TILE,TILE);
                 mctx.fillStyle = 'rgba(255,255,255,0.03)'; mctx.fillRect(px,py,TILE,TILE);
                 continue;
@@ -2127,7 +2127,7 @@ function update() {
         }
         if(!nearNPC) for(const[id,m]of Object.entries(MEMBERS)){
             const did=parseInt(id);
-            if(did>=11&&did<=51) continue; // outer boroughs coming soon
+            if(did>=11&&did<=51&&did!==34) continue; // outer boroughs coming soon
             const nx=m.pos.x*TILE+TILE/2,ny=m.pos.y*TILE+TILE/2;
             if(Math.hypot(player.x-nx,player.y-ny)<TILE*2){nearNPC=did;break;}
         }
@@ -2163,7 +2163,7 @@ function render() {
     // NPCs (world space - transform handles camera offset)
     for(const[id,m]of Object.entries(MEMBERS)){
         const did=parseInt(id);
-        if(did>=11&&did<=51) continue; // outer boroughs coming soon
+        if(did>=11&&did<=51&&did!==34) continue; // outer boroughs coming soon
         const sx=m.pos.x*TILE,sy=m.pos.y*TILE;
         const scx=sx-camera.x,scy=sy-camera.y;
         if(scx>-TILE*2/zoom&&scx<vw+TILE&&scy>-TILE*2/zoom&&scy<vh+TILE){
