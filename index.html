@@ -9,6 +9,7 @@
 body {
     background: #0a0a0a;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
@@ -21,14 +22,18 @@ canvas {
     border: 4px solid #333;
 }
 #coming-soon-banner {
+    width: 808px;
     background: linear-gradient(135deg, #1a3a5c, #2980b9);
     color: #fff;
     text-align: center;
-    padding: 8px 16px;
+    padding: 10px 16px;
     font: bold 13px 'Courier New', monospace;
     letter-spacing: 0.5px;
+    border: 4px solid #333;
     border-bottom: 2px solid #ffd700;
+    border-radius: 4px 4px 0 0;
 }
+#game-wrap canvas { border-top: none; border-radius: 0 0 0 0; }
 #game-wrap { position: relative; }
 #music-btn {
     position: absolute;
@@ -2765,12 +2770,15 @@ function renderTitle() {
     const barW=W/10;for(let i=1;i<=10;i++){ctx.fillStyle=DISTRICT_COLORS[i];ctx.globalAlpha=0.6;ctx.fillRect((i-1)*barW,H-30,barW,4);ctx.globalAlpha=1;}
     ctx.fillStyle='#fff';ctx.font='bold 52px monospace';ctx.textAlign='center';ctx.fillText('NYC COUNCIL',W/2,155);
     ctx.fillStyle='#ffd700';ctx.fillText('QUEST',W/2,215);
-    ctx.fillStyle='#999';ctx.font='16px monospace';ctx.fillText('Walk the five boroughs. Meet all 51 council members.',W/2,268);
-    ctx.fillStyle='#777';ctx.font='14px monospace';ctx.fillText('All Five Boroughs  |  51 Council Districts  |  5 Boroughs',W/2,296);
+    ctx.fillStyle='#999';ctx.font='16px monospace';ctx.fillText('Walk the districts. Meet your representatives.',W/2,268);
+    ctx.fillStyle='#777';ctx.font='14px monospace';ctx.fillText('Manhattan Edition  |  10 Council Districts',W/2,296);
     if(Math.floor(Date.now()/600)%2){ctx.fillStyle='#fff';ctx.font='bold 20px monospace';ctx.fillText('Press ENTER to start',W/2,380);}
-    ctx.fillStyle='#555';ctx.font='12px monospace';
+    // Controls box
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(W/2-280,420,560,56);
+    ctx.strokeStyle='#444';ctx.strokeRect(W/2-280,420,560,56);
+    ctx.fillStyle='#aaa';ctx.font='12px monospace';
     ctx.fillText('Arrow Keys / WASD to move  |  SPACE to interact',W/2,440);
-    ctx.fillText('/  to search by address  |  +/- or scroll to zoom',W/2,462);
+    ctx.fillText('/  to search by address  |  +/- or scroll to zoom  |  ESC for help',W/2,460);
     ctx.textAlign='left';
 }
 
